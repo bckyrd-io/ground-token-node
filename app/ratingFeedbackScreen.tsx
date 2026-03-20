@@ -1,0 +1,150 @@
+import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+const COLORS = {
+    primary: '#2E7D32',
+    white: '#ffffff',
+    slate900: '#0f172a',
+    slate700: '#334155',
+    slate600: '#475569',
+    slate500: '#64748b',
+    slate400: '#94a3b8',
+    slate200: '#e2e8f0',
+    slate100: '#f1f5f9',
+    slate800: '#1e293b',
+};
+
+const QUICK_TAGS = ['Cleanliness', 'Friendly Staff', 'Safety', 'Equipment'];
+
+export default function RatingFeedbackScreen() {
+    const router = useRouter();
+    const [rating, setRating] = useState(4);
+
+    const ratingLabels = ['', 'Terrible', 'Bad', 'Okay', 'Great', 'Amazing'];
+
+    return (
+        <SafeAreaView style={styles.safeArea}>
+            {/* Header */}
+            <View style={styles.header}>
+                <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
+                    <MaterialIcons name="arrow-back" size={24} color={COLORS.slate700} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Rate Your Experience</Text>
+                <View style={{ width: 40 }} />
+            </View>
+
+            <View style={styles.content}>
+                {/* Branding */}
+                <View style={styles.branding}>
+                    <View style={styles.logoCircle}>
+                        <Image
+                            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDFWi_rUi5LE9uumzouWe5BSLOq7YWet6EmhqVssnUEXrixRcrzXBw0mgHvExlaSPBmmGJMQ2Cfo-QdgTdGAFQANoVL-1piWU1pP_HJA_2QI3R0tNqwS31Smiuzq88_7edODDdZg-z6xgJh9X6Ii6at_Y9E6-xUzAlPxwj6Xfb_P1Kp9eXzpO6Q-71n4NupYQ7vZl2I-tqmtKqbMiUV9Y_DuDz22TAZIbTiTkJ1RkJQEr2hil86ZgdF3bN6MztOmdfLgVs2s1fwE1KC' }}
+                            style={styles.logoImage}
+                            contentFit="cover"
+                        />
+                    </View>
+                    <Text style={styles.brandName}>Gelato Kids</Text>
+                    <Text style={styles.brandTagline}>We hope you had a blast today!</Text>
+                </View>
+
+                {/* Star Rating */}
+                <View style={styles.ratingSection}>
+                    <Text style={styles.ratingLabel}>Tap to rate</Text>
+                    <View style={styles.starsRow}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                            <TouchableOpacity key={star} onPress={() => setRating(star)}>
+                                <MaterialIcons
+                                    name={star <= rating ? 'star' : 'star-border'}
+                                    size={48}
+                                    color={star <= rating ? COLORS.primary : COLORS.slate200}
+                                />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                    <Text style={styles.ratingText}>{ratingLabels[rating]}</Text>
+                </View>
+
+                {/* Comment */}
+                <View style={styles.commentSection}>
+                    <Text style={styles.label}>Write a comment (optional)</Text>
+                    <TextInput
+                        style={styles.textArea}
+                        multiline
+                        placeholder="Tell us about your visit, what did the kids love most?"
+                        placeholderTextColor={COLORS.slate400}
+                    />
+                </View>
+
+                {/* Quick Tags */}
+                <View style={styles.tagsRow}>
+                    {QUICK_TAGS.map((tag) => (
+                        <View key={tag} style={styles.tag}>
+                            <Text style={styles.tagText}>{tag}</Text>
+                        </View>
+                    ))}
+                </View>
+            </View>
+
+            {/* Footer */}
+            <View style={styles.footer}>
+                <TouchableOpacity style={styles.submitButton} activeOpacity={0.9}>
+                    <Text style={styles.submitText}>Submit Feedback</Text>
+                    <MaterialIcons name="send" size={20} color={COLORS.white} />
+                </TouchableOpacity>
+                <Text style={styles.footerNote}>Your feedback helps us make Gelato Kids better for everyone</Text>
+            </View>
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },
+    header: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.slate100,
+    },
+    headerBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.slate900, flex: 1, textAlign: 'center' },
+    content: { flex: 1, paddingHorizontal: 24, paddingTop: 32, alignItems: 'center' },
+    branding: { alignItems: 'center', marginBottom: 40 },
+    logoCircle: {
+        width: 96, height: 96, borderRadius: 48, overflow: 'hidden',
+        backgroundColor: 'rgba(46,125,50,0.1)', borderWidth: 2, borderColor: 'rgba(46,125,50,0.2)',
+        marginBottom: 16,
+    },
+    logoImage: { width: '100%', height: '100%' },
+    brandName: { fontSize: 24, fontWeight: '900', color: COLORS.slate900 },
+    brandTagline: { fontSize: 14, color: COLORS.slate500, marginTop: 4 },
+    ratingSection: { alignItems: 'center', marginBottom: 40 },
+    ratingLabel: { fontSize: 14, fontWeight: '700', color: COLORS.primary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 },
+    starsRow: { flexDirection: 'row', gap: 8 },
+    ratingText: { fontSize: 14, color: COLORS.slate400, fontStyle: 'italic', marginTop: 16 },
+    commentSection: { width: '100%', gap: 8 },
+    label: { fontSize: 14, fontWeight: '600', color: COLORS.slate700, paddingLeft: 4 },
+    textArea: {
+        width: '100%', minHeight: 160, padding: 16,
+        backgroundColor: '#f8fafc', borderWidth: 1, borderColor: COLORS.slate200,
+        borderRadius: 12, fontSize: 16, color: COLORS.slate900, textAlignVertical: 'top',
+    },
+    tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16, width: '100%' },
+    tag: {
+        paddingHorizontal: 12, paddingVertical: 4,
+        backgroundColor: COLORS.slate100, borderRadius: 9999,
+        borderWidth: 1, borderColor: COLORS.slate200,
+    },
+    tagText: { fontSize: 12, fontWeight: '500', color: COLORS.slate600 },
+    footer: {
+        padding: 24, borderTopWidth: 1, borderTopColor: COLORS.slate100,
+    },
+    submitButton: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        height: 56, backgroundColor: COLORS.primary, borderRadius: 12,
+        shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
+    },
+    submitText: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
+    footerNote: { textAlign: 'center', fontSize: 10, color: COLORS.slate400, marginTop: 16, textTransform: 'uppercase', letterSpacing: -0.3 },
+});

@@ -5,22 +5,27 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+    const colorScheme = useColorScheme();
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
-
-
-  );
+    return (
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(visitor-tabs)" />
+                <Stack.Screen name="(staff-tabs)" />
+                <Stack.Screen name="(admin-tabs)" />
+                <Stack.Screen name="staffLoginScreen" />
+                <Stack.Screen name="activityDetailScreen" />
+                <Stack.Screen name="confirmPaymentScreen" />
+                <Stack.Screen name="playTimerScreen" />
+                <Stack.Screen name="validationResultScreen" />
+                <Stack.Screen name="ratingFeedbackScreen" />
+                <Stack.Screen name="registerStaffScreen" />
+                <Stack.Screen name="updateActivityScreen" />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+            </Stack>
+            <StatusBar style="auto" />
+        </ThemeProvider>
+    );
 }
