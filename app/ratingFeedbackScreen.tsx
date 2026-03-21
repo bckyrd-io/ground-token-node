@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useStore } from './store';
 
 const COLORS = {
     primary: '#2E7D32',
@@ -17,13 +18,24 @@ const COLORS = {
     slate800: '#1e293b',
 };
 
-const QUICK_TAGS = ['Cleanliness', 'Friendly Staff', 'Safety', 'Equipment'];
-
 export default function RatingFeedbackScreen() {
     const router = useRouter();
     const [rating, setRating] = useState(4);
+    const { feedbackOptions, fetchFeedbackOptions } = useStore();
 
-    const ratingLabels = ['', 'Terrible', 'Bad', 'Okay', 'Great', 'Amazing'];
+    useEffect(() => {
+        fetchFeedbackOptions();
+    }, [fetchFeedbackOptions]);
+
+    if (!feedbackOptions) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <Text>Loading...</Text>
+            </SafeAreaView>
+        );
+    }
+
+    const { quickTags, ratingLabels } = feedbackOptions;
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -80,7 +92,7 @@ export default function RatingFeedbackScreen() {
 
                 {/* Quick Tags */}
                 <View style={styles.tagsRow}>
-                    {QUICK_TAGS.map((tag) => (
+                    {quickTags.map((tag) => (
                         <View key={tag} style={styles.tag}>
                             <Text style={styles.tagText}>{tag}</Text>
                         </View>

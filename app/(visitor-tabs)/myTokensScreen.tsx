@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useStore } from '../store';
 
 const COLORS = {
     primary: '#2E7D32',
@@ -11,37 +12,16 @@ const COLORS = {
     slate100: '#f1f5f9',
 };
 
-const TOKENS = [
-    {
-        id: '1',
-        name: 'Trampoline Park',
-        code: '#GT-4829',
-        status: 'queue',
-        queuePosition: '#3',
-        qrImage: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDGnmpGUSgqZxJqH3uM-2JUWTzeIZ7b3YFbrxFCuEWi2WNqYw_6fxOXHddOogKhg37iYW4lbncCSan3PsCooKDUCPMxV_YyJ8o_mEpinHRKH4PE3jZDCXWFKUoYd9onS6_o2JnCcmETMmOMMBoVjkhLAzs9vQSSB6q50Y1g0MlV-DQeTDcB6Jc5IiSKZizlk0o_0jyPewSyJ3_EuPM2IbswbgiV-8IMGdl47Zae4Ju4wFufZ8J4RxDdCKnuvYD-rcAERWlTqNZ_3noH',
-    },
-    {
-        id: '2',
-        name: 'Ocean Ball Pit',
-        code: '#GT-9214',
-        status: 'ready',
-        queuePosition: null,
-        qrImage: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDGnmpGUSgqZxJqH3uM-2JUWTzeIZ7b3YFbrxFCuEWi2WNqYw_6fxOXHddOogKhg37iYW4lbncCSan3PsCooKDUCPMxV_YyJ8o_mEpinHRKH4PE3jZDCXWFKUoYd9onS6_o2JnCcmETMmOMMBoVjkhLAzs9vQSSB6q50Y1g0MlV-DQeTDcB6Jc5IiSKZizlk0o_0jyPewSyJ3_EuPM2IbswbgiV-8IMGdl47Zae4Ju4wFufZ8J4RxDdCKnuvYD-rcAERWlTqNZ_3noH',
-    },
-    {
-        id: '3',
-        name: 'Rainbow Giant Slide',
-        code: '#GT-1105',
-        status: 'queue',
-        queuePosition: '#12',
-        qrImage: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDGnmpGUSgqZxJqH3uM-2JUWTzeIZ7b3YFbrxFCuEWi2WNqYw_6fxOXHddOogKhg37iYW4lbncCSan3PsCooKDUCPMxV_YyJ8o_mEpinHRKH4PE3jZDCXWFKUoYd9onS6_o2JnCcmETMmOMMBoVjkhLAzs9vQSSB6q50Y1g0MlV-DQeTDcB6Jc5IiSKZizlk0o_0jyPewSyJ3_EuPM2IbswbgiV-8IMGdl47Zae4Ju4wFufZ8J4RxDdCKnuvYD-rcAERWlTqNZ_3noH',
-    },
-];
-
 export default function MyTokensScreen() {
+    const { tokens, fetchTokens } = useStore();
+
+    useEffect(() => {
+        fetchTokens();
+    }, [fetchTokens]);
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-            {TOKENS.map((token) => (
+            {tokens.map((token) => (
                 <View key={token.id} style={styles.card}>
                     {/* Card Header */}
                     <View style={styles.cardHeader}>

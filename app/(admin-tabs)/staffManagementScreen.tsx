@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useStore } from '../store';
 
 const COLORS = {
     primary: '#2E7D32',
@@ -16,27 +17,13 @@ const COLORS = {
     slate700: '#334155',
 };
 
-const STAFF = [
-    {
-        id: '1', name: 'Alice Henderson', zone: 'Trampoline Park', status: 'Active',
-        image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC29lEbjgXczTBNVT9obxDQ4lyTWXoy8l8s2MVSi5T8q-PbNHwm8v4tnsFBBbovO24YvqtOJRXVI8Y4Ma-XbfTE4b_Z5tvUrm0S-vePxDUSg2y2zs9ImY2fytVir9jTj9yQEwDWtuP1yh4CgeNqZXforin5bqyWG_uhxMGFj5mPY03EHRbM7hPmEXrfn50uSUhPTNgRA2KL3RtSuVZM4sQUTwUSFtmFpWpQh4Htubsdu3KI7xB6FXxu9lVDJ2WLoW6xk-YDkvC9q6pR',
-    },
-    {
-        id: '2', name: 'Marcus Thompson', zone: 'Ball Pit', status: 'Active',
-        image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA-FfnnJw8mL4hbkUGdwrhpD6R3GyuGxEW1gEMm5oaVT-wf4XJbdQuHEE1iT1QpO01bsysGqhUYtC8q8HjICXJlXj2m77Q84ftGsoOs2_XAA-oz_wY817StBvL8oBSLs___MS8qb2BksixRPaJDrO7OSlH3kI7YrJltFVfuod1gqGXiAlGB8djCabsyRc3TI9TevUxlXdMtq3SfrTQ193xs0LjqtXemdAybh2A5J2_JfLKrEmR6qNwkA3rPXi1H0PIKpQUfbeg9jrd3',
-    },
-    {
-        id: '3', name: 'Sarah Jenkins', zone: 'Slide Zone', status: 'Off-Duty',
-        image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDr8lcKsgUV5wV-VcEpvQq6MIlyshS9PH3QxEm2xG5koGSzd7WOb38-Rx7vd0UG0LXcCwf5sfdHeq4JfN0LSKK2zDMinAWayssfy_1eF9JpCodqD1RAdT5kdxUD6F_wTmtxw727ulCyBkGhN47wxTjPR1w8CCV605IRsOaFZZfjcMoBcUtimY9T3AVfizQuWVtlbcWv2iJ_1bmlgcuKOTYgT8tmb9euQBN8Elp_i1ik4nuoaVcp_G1kKRHYLWkvo4rLnRwDN6lbkSU4',
-    },
-    {
-        id: '4', name: 'David Chen', zone: 'Trampoline Park', status: 'Active',
-        image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBrG9a386F8T4F0SfzvHVulBezLthnuZFKxlTCA3i0SS50x4yhU9kdtnPY4KMhs_y7uD6vcrmllx7ukISSCz762mVrQQaESVkN7rswvQh7P7zdiX07xFxYSuMfv-kkLpSDo3Zh68kC4CexjhubgvbUoxjcp4wn1TmbiWmfj36tK6HTcX_GAEnrEcEwq3PKSuk0hnSul38nWrm2PAKVK4YhC2fPkt_D1Q3hGuhVSkNIP04wXn-k58ZoStmSUZ0mrhPsvB4oy9BROtitZ',
-    },
-];
-
 export default function StaffManagementScreen() {
     const router = useRouter();
+    const { staff, fetchStaff } = useStore();
+
+    useEffect(() => {
+        fetchStaff();
+    }, [fetchStaff]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -60,7 +47,7 @@ export default function StaffManagementScreen() {
             <Text style={styles.sectionTitle}>Staff Members</Text>
 
             <View style={styles.staffList}>
-                {STAFF.map((member) => {
+                {staff.map((member) => {
                     const isOffDuty = member.status === 'Off-Duty';
                     return (
                         <View key={member.id} style={[styles.staffCard, isOffDuty && { opacity: 0.75 }]}>

@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useStore } from './store';
 
 const COLORS = {
     primary: '#2E7D32',
@@ -18,15 +19,24 @@ const COLORS = {
     slate800: '#1e293b',
 };
 
-const SAFETY_RULES = [
-    'Grip socks must be worn at all times.',
-    'One person per trampoline.',
-    'No flips or somersaults into foam pits.',
-    'Empty pockets before jumping.',
-];
-
 export default function ActivityDetailScreen() {
     const router = useRouter();
+    const { activityDetails, fetchActivityDetail } = useStore();
+    const activity = activityDetails['1']; // Assuming id '1' for now
+
+    useEffect(() => {
+        if (!activity) {
+            fetchActivityDetail('1');
+        }
+    }, [activity, fetchActivityDetail]);
+
+    if (!activity) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <Text>Loading...</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -43,7 +53,7 @@ export default function ActivityDetailScreen() {
                 {/* Hero Image */}
                 <View style={styles.heroContainer}>
                     <Image
-                        source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD6eIehmaJu-d2Gd4D_d5XWqnPmkMlpEMvlmLUTuZ70B159hd0cQl4zKvpQ9pEm-Y0X-swTLjL85Zt9RIijJcG2bsOWBcGc0_4EN9_ivCvVjRPPdTSbeMyrXwkGs5qR8eD6QFrafpZAR6jcygaglRcx9B7MMEo0Gjr0nh-BFjhRxuI8HiVhjvjexwJtqhWiyTxHt3dhUYkebXHLMoUL9kMuMSwiNYL32F1VSSYntt2extDe47TVpNrqhEHFRZ8BIr0ZKVNIyuX9BMxP' }}
+                        source={{ uri: activity.image }}
                         style={styles.heroImage}
                         contentFit="cover"
                     />
@@ -51,18 +61,18 @@ export default function ActivityDetailScreen() {
 
                 {/* Title & Rating */}
                 <View style={styles.titleSection}>
-                    <Text style={styles.activityTitle}>Trampoline Park</Text>
+                    <Text style={styles.activityTitle}>{activity.name}</Text>
                     <View style={styles.ratingRow}>
-                        <Text style={styles.ratingScore}>4.8</Text>
+                        <Text style={styles.ratingScore}>{activity.rating}</Text>
                         <MaterialIcons name="star" size={20} color={COLORS.primary} />
-                        <Text style={styles.ratingCount}>(120 reviews)</Text>
+                        <Text style={styles.ratingCount}>({activity.reviewCount} reviews)</Text>
                     </View>
                 </View>
 
                 {/* Description */}
                 <View style={styles.descSection}>
                     <Text style={styles.description}>
-                        A high-energy jumping zone featuring professional-grade trampolines, foam pits, and safety nets. Perfect for burning off energy and practicing cool jumps.
+                        {activity.description}
                     </Text>
                 </View>
 
@@ -72,7 +82,7 @@ export default function ActivityDetailScreen() {
                         <MaterialIcons name="gavel" size={20} color={COLORS.primary} />
                         <Text style={styles.safetyTitle}>Safety Rules</Text>
                     </View>
-                    {SAFETY_RULES.map((rule, index) => (
+                    {activity.safetyRules.map((rule, index) => (
                         <View key={index} style={styles.ruleRow}>
                             <MaterialIcons name="check-circle" size={18} color={COLORS.primary} />
                             <Text style={styles.ruleText}>{rule}</Text>

@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useStore } from '../store';
 
 const COLORS = {
     primary: '#2E7D32',
@@ -16,26 +17,13 @@ const COLORS = {
     slate800: '#1e293b',
 };
 
-const ACTIVITIES = [
-    {
-        id: '1', name: 'Trampoline Park',
-        capacity: '25/40', percent: 62.5,
-        image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDBM6BoXpFRfq4L3idPdVAezYQtejMLs92T1H76rWrc4B-dJacAutWZfqPSQN88EDeFMxAzpDB8rNpNbX6-Aw7j-yn7YOu1ABpujBjVyOIMCtRoeWVZfQlfoHLYYiWigpGUkVQPCXpGgSA65986Jg_AOB9ZtGxalHY270JllEpeaXe9HqeDjHiAwplmu-Ev8QCKFfFYM8KYJeEn9coITM0-JqP1lZ0HTd-vKopLrDMHrdaLYk4meJaO_A1DdBeCxAvqOgoKksEPsCNr',
-    },
-    {
-        id: '2', name: 'Ball Pit',
-        capacity: '15/20', percent: 75,
-        image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCsRGhdJ6IWpQxzbYQV2ciFrYIswv6IS-b4GjOx1Pg8fwERnZ5_WK2LEL-JSWVvccLJWAnFXDo62m_cefjXLuPYOzp_n2M_e406S7d17fViX3olZd1pNh6BJx2Tytk5KP_Gr5HEmjETr3FzCAzWiIdOlgoc25flt2WYyrlf_ibwbM_xepChgUbjWhGEp8kLXEyP80EiyLUK-7sVn4YvjOhVwMA7UBAa8KeepyTXcfnASwf-9-jpDdHXrDUmwVBnLIEarb1btrbNdf2f',
-    },
-    {
-        id: '3', name: 'Slide Zone',
-        capacity: '10/30', percent: 33.3,
-        image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAg4SCdDJgInsbOE_brJ5yxQd4inXsjytpjBENpKxnric0fh7l2JB9XCDIpmitlcfx_rbJwKDgI1dyhDaSpKssETveVJ-ElMgAn9EU4VLPtvargPk4R9p4VVxEZFO0AjqB7iaixPbMimp2wrESdtT480HMO5VWVvTWgqeTwTj88p2ICdw45ZCD5EV1BZU8pAVW_pHtslw8FGioRa34ATPe8CYNi8hGPbPjj6PoCl9yWxQsuTLbrUYXuXNtNZHODaWJ7XZ_7t_23Yzgp',
-    },
-];
-
 export default function ManageActivitiesScreen() {
     const router = useRouter();
+    const { adminActivities, fetchAdminActivities } = useStore();
+
+    useEffect(() => {
+        fetchAdminActivities();
+    }, [fetchAdminActivities]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -53,7 +41,7 @@ export default function ManageActivitiesScreen() {
 
             {/* Activity List */}
             <View style={styles.activityList}>
-                {ACTIVITIES.map((activity) => (
+                {adminActivities.map((activity) => (
                     <View key={activity.id} style={styles.activityCard}>
                         <Image source={{ uri: activity.image }} style={styles.activityImage} contentFit="cover" />
                         <View style={styles.activityInfo}>
