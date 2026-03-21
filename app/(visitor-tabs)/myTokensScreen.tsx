@@ -1,6 +1,6 @@
-import { Image } from 'expo-image';
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useStore } from '../store';
 
 const COLORS = {
@@ -42,7 +42,12 @@ export default function MyTokensScreen() {
 
                     {/* QR Code */}
                     <View style={styles.qrContainer}>
-                        <Image source={{ uri: token.qrImage }} style={styles.qrImage} contentFit="contain" />
+                        <QRCode
+                            value={token.code}
+                            size={192}
+                            color="#000000"
+                            backgroundColor={COLORS.white}
+                        />
                         {/* Corner Accents */}
                         <View style={[styles.corner, styles.topLeft]} />
                         <View style={[styles.corner, styles.topRight]} />
