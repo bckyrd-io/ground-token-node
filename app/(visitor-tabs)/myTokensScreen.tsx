@@ -1,16 +1,8 @@
+import { COLORS } from '@/constants/theme';
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useStore } from '../store';
-
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    bgLight: '#f3f4f6',
-    slate900: '#0f172a',
-    slate500: '#64748b',
-    slate100: '#f1f5f9',
-};
 
 export default function MyTokensScreen() {
     const { tokens, fetchTokens } = useStore();

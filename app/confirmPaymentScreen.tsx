@@ -1,21 +1,8 @@
+import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    slate900: '#0f172a',
-    slate700: '#334155',
-    slate600: '#475569',
-    slate500: '#64748b',
-    slate400: '#94a3b8',
-    slate300: '#cbd5e1',
-    slate200: '#e2e8f0',
-    slate100: '#f1f5f9',
-    slate800: '#1e293b',
-};
 
 export default function ConfirmPaymentScreen() {
     const router = useRouter();

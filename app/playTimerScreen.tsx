@@ -1,23 +1,9 @@
+import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    bgLight: '#ffffff',
-    slate900: '#0f172a',
-    slate700: '#334155',
-    slate500: '#64748b',
-    slate200: '#e2e8f0',
-    amber600: '#d97706',
-    amber50: '#fffbeb',
-    amber100: '#fef3c7',
-    amber700: '#b45309',
-    amber800: '#92400e',
-};
 
 export default function PlayTimerScreen() {
     const router = useRouter();

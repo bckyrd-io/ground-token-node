@@ -11,6 +11,8 @@ type Activity = {
     name: string;
     description: string;
     price: string;
+    currentOccupancy: number;
+    capacity: number;
     waitTime: string;
     waitColor: string;
     image: string;
@@ -81,7 +83,7 @@ export const useStore = create<StoreState>((set, get) => ({
         username: 'JohnDoe',
         avatar: 'https://picsum.photos/200',
     },
-    serverIp: 'http://192.168.1.175:5000', // Replace with your server IP or base URL
+    serverIp: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000',
     activities: [],
     adminActivities: [],
     activityDetails: {},
@@ -115,7 +117,32 @@ export const useStore = create<StoreState>((set, get) => ({
             const { serverIp } = get();
             const response = await fetch(`${serverIp}/api/activities`);
             const data = await response.json();
-            set({ activities: data });
+            
+            // Compute wait time and color on frontend
+            const processedActivities = data.map((activity: any) => {
+                const occupancyRate = activity.currentOccupancy / activity.capacity;
+                let waitTime: string;
+                let waitColor: string;
+
+                if (occupancyRate < 0.5) {
+                    waitTime = 'No wait';
+                    waitColor = '#22c55e';
+                } else if (occupancyRate < 0.8) {
+                    waitTime = '15 min wait';
+                    waitColor = '#fbbf24';
+                } else {
+                    waitTime = '30 min wait';
+                    waitColor = '#ef4444';
+                }
+
+                return {
+                    ...activity,
+                    waitTime,
+                    waitColor,
+                };
+            });
+            
+            set({ activities: processedActivities });
         } catch (error) {
             console.error('Failed to fetch activities:', error);
         }

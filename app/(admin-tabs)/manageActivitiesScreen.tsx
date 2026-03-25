@@ -1,21 +1,10 @@
+import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStore } from '../store';
-
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    bgLight: '#f8f6f6',
-    slate900: '#0f172a',
-    slate600: '#475569',
-    slate500: '#64748b',
-    slate200: '#e2e8f0',
-    slate100: '#f1f5f9',
-    slate800: '#1e293b',
-};
 
 export default function ManageActivitiesScreen() {
     const router = useRouter();

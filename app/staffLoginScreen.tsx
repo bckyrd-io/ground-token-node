@@ -1,17 +1,8 @@
+import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    slate900: '#0f172a',
-    slate700: '#334155',
-    slate400: '#94a3b8',
-    slate200: '#e2e8f0',
-    neutralGray: '#757575',
-};
 
 export default function StaffLoginScreen() {
     const router = useRouter();
@@ -62,7 +53,7 @@ export default function StaffLoginScreen() {
                     <TouchableOpacity
                         style={styles.signInButton}
                         activeOpacity={0.9}
-                        onPress={() => router.push('/(staff-tabs)/staffScannerScreen' as any)}
+                        onPress={() => router.push('/(staff-tabs)/staffScannerScreen')}
                     >
                         <Text style={styles.signInText}>Sign In</Text>
                     </TouchableOpacity>

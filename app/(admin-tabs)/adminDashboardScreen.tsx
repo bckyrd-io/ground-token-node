@@ -1,17 +1,7 @@
+import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    bgLight: '#ffffff',
-    slate900: '#0f172a',
-    slate500: '#64748b',
-    slate400: '#94a3b8',
-    slate200: '#e2e8f0',
-    slate100: '#f1f5f9',
-};
 
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const BAR_HEIGHTS = [45, 35, 55, 50, 95, 100, 75];

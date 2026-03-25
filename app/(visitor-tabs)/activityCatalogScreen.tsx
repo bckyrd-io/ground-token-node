@@ -1,21 +1,9 @@
+import { COLORS } from '@/constants/theme';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStore } from '../store';
-
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    bgLight: '#F8FAF8',
-    slate700: '#334155',
-    slate500: '#64748b',
-    slate400: '#94a3b8',
-    slate100: '#f1f5f9',
-    amber400: '#fbbf24',
-    green500: '#22c55e',
-    red500: '#ef4444',
-};
 
 export default function ActivityCatalogScreen() {
     const router = useRouter();
@@ -55,7 +43,7 @@ export default function ActivityCatalogScreen() {
                         <Text style={styles.cardDescription}>{activity.description}</Text>
                         <TouchableOpacity
                             style={styles.bookButton}
-                            onPress={() => router.push('/activityDetailScreen' as any)}
+                            onPress={() => router.push({ pathname: '/activityDetailScreen', params: { id: activity.id } })}
                         >
                             <Text style={styles.bookButtonText}>Book Access</Text>
                         </TouchableOpacity>

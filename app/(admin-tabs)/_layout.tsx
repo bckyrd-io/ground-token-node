@@ -63,16 +63,7 @@ export default function AdminTabsLayout() {
                     ),
                 }}
             />
-            <Tabs.Screen
-                name="reportsScreen"
-                options={{
-                    title: 'Reports',
-                    tabBarLabel: 'Reports',
-                    tabBarIcon: ({ color, size }) => (
-                        <MaterialIcons name="bar-chart" size={size} color={color} />
-                    ),
-                }}
-            />
+            
         </Tabs>
     );
 }

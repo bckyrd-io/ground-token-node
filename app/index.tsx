@@ -1,17 +1,10 @@
+import { COLORS } from '@/constants/theme';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Dimensions, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
-
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    slate900: '#0f172a',
-    slate500: '#64748b',
-    slate300: '#cbd5e1',
-};
 
 export default function OnboardingScreen() {
     const router = useRouter();
@@ -52,13 +45,13 @@ export default function OnboardingScreen() {
                     <TouchableOpacity
                         style={styles.primaryButton}
                         activeOpacity={0.9}
-                        onPress={() => router.push('/(visitor-tabs)/activityCatalogScreen' as any)}
+                        onPress={() => router.push('/(visitor-tabs)/activityCatalogScreen')}
                     >
                         <Text style={styles.primaryButtonText}>Browse Play Zones</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        onPress={() => router.push('/staffLoginScreen' as any)}
+                        onPress={() => router.push('/staffLoginScreen')}
                     >
                         <Text style={styles.secondaryLink}>Staff Login</Text>
                     </TouchableOpacity>

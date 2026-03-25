@@ -1,34 +1,23 @@
+import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStore } from './store';
 
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    bgLight: '#f8f6f6',
-    slate900: '#0f172a',
-    slate700: '#334155',
-    slate600: '#475569',
-    slate500: '#64748b',
-    slate400: '#94a3b8',
-    slate200: '#e2e8f0',
-    slate100: '#f1f5f9',
-    slate800: '#1e293b',
-};
-
 export default function ActivityDetailScreen() {
     const router = useRouter();
+    const { id } = useLocalSearchParams<{ id: string }>();
+    const activityId = id || '1'; // Fallback to '1' if not provided
     const { activityDetails, fetchActivityDetail } = useStore();
-    const activity = activityDetails['1']; // Assuming id '1' for now
+    const activity = activityDetails[activityId];
 
     useEffect(() => {
         if (!activity) {
-            fetchActivityDetail('1');
+            fetchActivityDetail(activityId);
         }
-    }, [activity, fetchActivityDetail]);
+    }, [activityId, activity, fetchActivityDetail]);
 
     if (!activity) {
         return (
@@ -90,6 +79,18 @@ export default function ActivityDetailScreen() {
                     ))}
                 </View>
             </ScrollView>
+
+            {/* Footer - Buy Token Button */}
+            <View style={styles.footer}>
+                <TouchableOpacity
+                    style={styles.buyButton}
+                    activeOpacity={0.9}
+                    onPress={() => router.push({ pathname: '/confirmPaymentScreen', params: { id: activityId } })}
+                >
+                    <MaterialIcons name="shopping-cart" size={20} color={COLORS.white} />
+                    <Text style={styles.buyButtonText}>Buy Token</Text>
+                </TouchableOpacity>
+            </View>
         </SafeAreaView>
     );
 }
@@ -123,4 +124,29 @@ const styles = StyleSheet.create({
     safetyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.slate900 },
     ruleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
     ruleText: { fontSize: 14, color: COLORS.slate700, fontWeight: '500', flex: 1, lineHeight: 20 },
+    footer: {
+        padding: 16,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.slate200,
+        backgroundColor: COLORS.white,
+    },
+    buyButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        height: 56,
+        backgroundColor: COLORS.primary,
+        borderRadius: 12,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    buyButtonText: {
+        color: COLORS.white,
+        fontSize: 18,
+        fontWeight: '700',
+    },
 });

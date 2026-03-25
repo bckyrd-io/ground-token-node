@@ -1,21 +1,8 @@
+import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-
-const COLORS = {
-    primary: '#2E7D32',
-    white: '#ffffff',
-    bgLight: '#f8f6f6',
-    slate900: '#0f172a',
-    slate500: '#64748b',
-    slate400: '#94a3b8',
-    slate200: '#e2e8f0',
-    slate100: '#f1f5f9',
-    slate800: '#1e293b',
-    orange600: '#ea580c',
-    red600: '#dc2626',
-};
 
 const SESSIONS = [
     { id: 'GT-4829', zone: 'Ball Pit Area', time: '12:45 left', timeColor: COLORS.orange600 },
