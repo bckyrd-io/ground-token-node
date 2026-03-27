@@ -14,19 +14,22 @@ export default function StaffManagementScreen() {
         fetchStaff();
     }, [fetchStaff]);
 
+    // Calculate active staff count
+    const activeStaffCount = staff.filter(member => member.status === 'Active').length;
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             {/* On Duty Card */}
             <View style={styles.dutyCard}>
                 <Text style={styles.dutyLabel}>On Duty</Text>
-                <Text style={styles.dutyValue}>5</Text>
+                <Text style={styles.dutyValue}>{activeStaffCount}</Text>
             </View>
 
             {/* Register Button */}
             <TouchableOpacity
                 style={styles.registerButton}
                 activeOpacity={0.7}
-                onPress={() => router.push('/registerStaffScreen' as any)}
+                onPress={() => router.push('/registerStaffScreen')}
             >
                 <MaterialIcons name="add" size={20} color={COLORS.primary} />
                 <Text style={styles.registerButtonText}>Register New Staff</Text>
@@ -46,7 +49,7 @@ export default function StaffManagementScreen() {
                                 contentFit="cover"
                             />
                             <View style={styles.staffInfo}>
-                                <Text style={styles.staffName}>{member.name}</Text>
+                                <Text style={styles.staffName}>{member.username}</Text>
                                 <Text style={styles.staffZone}>{member.zone}</Text>
                             </View>
                             <View style={[styles.statusBadge, isOffDuty ? styles.offDutyBadge : styles.activeBadge]}>

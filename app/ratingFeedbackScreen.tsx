@@ -3,17 +3,74 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useStore } from './store';
 
 export default function RatingFeedbackScreen() {
     const router = useRouter();
     const [rating, setRating] = useState(4);
+    const [comment, setComment] = useState('');
+    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const { feedbackOptions, fetchFeedbackOptions } = useStore();
 
     useEffect(() => {
         fetchFeedbackOptions();
     }, [fetchFeedbackOptions]);
+
+    const handleSubmit = async () => {
+        if (rating === 0) {
+            Alert.alert('Error', 'Please select a rating');
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            
+            // Mock user and activity IDs - in production, get from auth/params
+            const userId = 'user-001'; // Should come from auth context
+            const activityId = '1'; // Should come from route params
+
+            const response = await fetch(`${serverIp}/api/feedback`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId,
+                    activityId,
+                    rating,
+                    comment,
+                    quickTags: selectedTags,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                Alert.alert('Success', 'Thank you for your feedback!', [
+                    { text: 'OK', onPress: () => router.back() }
+                ]);
+            } else {
+                Alert.alert('Error', data.error || 'Failed to submit feedback');
+            }
+        } catch (error) {
+            console.error('Feedback submission error:', error);
+            Alert.alert('Error', 'Network error. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const toggleTag = (tag: string) => {
+        setSelectedTags(prev => 
+            prev.includes(tag) 
+                ? prev.filter(t => t !== tag)
+                : [...prev, tag]
+        );
+    };
 
     if (!feedbackOptions) {
         return (
@@ -64,34 +121,54 @@ export default function RatingFeedbackScreen() {
                             </TouchableOpacity>
                         ))}
                     </View>
-                    <Text style={styles.ratingText}>{ratingLabels[rating]}</Text>
                 </View>
 
                 {/* Comment */}
                 <View style={styles.commentSection}>
-                    <Text style={styles.label}>Write a comment (optional)</Text>
                     <TextInput
                         style={styles.textArea}
                         multiline
-                        placeholder="Tell us about your visit, what did the kids love most?"
+                        placeholder="Tell us about your visit, what did kids love most?"
                         placeholderTextColor={COLORS.slate400}
+                        value={comment}
+                        onChangeText={setComment}
+                        textAlignVertical="top"
                     />
                 </View>
 
                 {/* Quick Tags */}
-                <View style={styles.tagsRow}>
-                    {quickTags.map((tag) => (
-                        <View key={tag} style={styles.tag}>
-                            <Text style={styles.tagText}>{tag}</Text>
-                        </View>
-                    ))}
+                <View style={styles.tagsSection}>
+                    <View style={styles.tagsRow}>
+                        {quickTags.map((tag) => (
+                            <TouchableOpacity 
+                                key={tag} 
+                                style={[
+                                    styles.tag,
+                                    selectedTags.includes(tag) && styles.tagSelected
+                                ]}
+                                onPress={() => toggleTag(tag)}
+                            >
+                                <Text style={[
+                                    styles.tagText,
+                                    selectedTags.includes(tag) && styles.tagTextSelected
+                                ]}>{tag}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
             </View>
 
             {/* Footer */}
             <View style={styles.footer}>
-                <TouchableOpacity style={styles.submitButton} activeOpacity={0.9}>
-                    <Text style={styles.submitText}>Submit Feedback</Text>
+                <TouchableOpacity 
+                    style={styles.submitButton} 
+                    activeOpacity={0.9}
+                    onPress={handleSubmit}
+                    disabled={isLoading}
+                >
+                    <Text style={styles.submitText}>
+                        {isLoading ? 'Submitting...' : 'Submit Feedback'}
+                    </Text>
                     <MaterialIcons name="send" size={20} color={COLORS.white} />
                 </TouchableOpacity>
                 <Text style={styles.footerNote}>Your feedback helps us make Gelato Kids better for everyone</Text>
@@ -119,31 +196,35 @@ const styles = StyleSheet.create({
     brandName: { fontSize: 24, fontWeight: '900', color: COLORS.slate900 },
     brandTagline: { fontSize: 14, color: COLORS.slate500, marginTop: 4 },
     ratingSection: { alignItems: 'center', marginBottom: 40 },
+    sectionTitle: { fontSize: 16, fontWeight: '600', color: COLORS.slate900, marginBottom: 12 },
     ratingLabel: { fontSize: 14, fontWeight: '700', color: COLORS.primary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 },
     starsRow: { flexDirection: 'row', gap: 8 },
     ratingText: { fontSize: 14, color: COLORS.slate400, fontStyle: 'italic', marginTop: 16 },
-    commentSection: { width: '100%', gap: 8 },
-    label: { fontSize: 14, fontWeight: '600', color: COLORS.slate700, paddingLeft: 4 },
+    commentSection: { width: '100%' },
     textArea: {
         width: '100%', minHeight: 160, padding: 16,
         backgroundColor: '#f8fafc', borderWidth: 1, borderColor: COLORS.slate200,
         borderRadius: 12, fontSize: 16, color: COLORS.slate900, textAlignVertical: 'top',
     },
+    tagsSection: { width: '100%', marginTop: 24 },
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16, width: '100%' },
     tag: {
         paddingHorizontal: 12, paddingVertical: 4,
         backgroundColor: COLORS.slate100, borderRadius: 9999,
         borderWidth: 1, borderColor: COLORS.slate200,
     },
+    tagSelected: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
     tagText: { fontSize: 12, fontWeight: '500', color: COLORS.slate600 },
+    tagTextSelected: { color: COLORS.white },
     footer: {
         padding: 24, borderTopWidth: 1, borderTopColor: COLORS.slate100,
     },
     submitButton: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
         height: 56, backgroundColor: COLORS.primary, borderRadius: 12,
-        shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
     },
     submitText: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
     footerNote: { textAlign: 'center', fontSize: 10, color: COLORS.slate400, marginTop: 16, textTransform: 'uppercase', letterSpacing: -0.3 },

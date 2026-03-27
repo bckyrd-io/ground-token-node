@@ -2,11 +2,65 @@ import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+// Simple toast utility
+const showToast = (message: string, type: 'success' | 'error' = 'error') => {
+    Alert.alert(
+        type === 'success' ? 'Success' : 'Error',
+        message,
+        [{ text: 'OK', style: 'default' }]
+    );
+};
 
 export default function RegisterStaffScreen() {
     const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        email: '',
+        phone: '',
+        username: '',
+        password: '',
+        role: 'staff'
+    });
+
+    const handleRegister = async () => {
+        if (!formData.email || !formData.username || !formData.password) {
+            showToast('Please fill in all required fields');
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const response = await fetch(`${serverIp}/api/auth/register-staff`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                showToast('Staff registered successfully', 'success');
+                // Navigate back to staff management screen after a short delay
+                setTimeout(() => {
+                    router.back();
+                }, 1500);
+            } else {
+                showToast(data.error || 'Registration failed');
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            showToast('Network error. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -22,51 +76,59 @@ export default function RegisterStaffScreen() {
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
                 <Text style={styles.sectionTitle}>Staff Information</Text>
 
-                {/* Full Name */}
+                {/* Username */}
                 <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Full Name</Text>
-                    <TextInput style={styles.input} placeholder="Enter staff's full name" placeholderTextColor={COLORS.slate400} />
+                    <TextInput 
+                        style={styles.input} 
+                        placeholder="Username" 
+                        placeholderTextColor={COLORS.slate400}
+                        value={formData.username}
+                        onChangeText={(text) => setFormData({...formData, username: text})}
+                    />
                 </View>
 
                 {/* Email */}
                 <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Email Address</Text>
-                    <TextInput style={styles.input} placeholder="email@example.com" placeholderTextColor={COLORS.slate400} keyboardType="email-address" />
+                    <TextInput 
+                        style={styles.input} 
+                        placeholder="Email address" 
+                        placeholderTextColor={COLORS.slate400} 
+                        keyboardType="email-address"
+                        value={formData.email}
+                        onChangeText={(text) => setFormData({...formData, email: text})}
+                    />
                 </View>
 
                 {/* Phone */}
                 <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Phone Number</Text>
-                    <TextInput style={styles.input} placeholder="+1 (555) 000-0000" placeholderTextColor={COLORS.slate400} keyboardType="phone-pad" />
+                    <TextInput 
+                        style={styles.input} 
+                        placeholder="Phone number" 
+                        placeholderTextColor={COLORS.slate400} 
+                        keyboardType="phone-pad"
+                        value={formData.phone}
+                        onChangeText={(text) => setFormData({...formData, phone: text})}
+                    />
                 </View>
 
                 {/* Role Selection */}
                 <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Role Selection</Text>
                     <View style={styles.selectWrapper}>
-                        <Text style={styles.selectText}>Select a role</Text>
-                        <MaterialIcons name="expand-more" size={24} color={COLORS.slate500} />
-                    </View>
-                </View>
-
-                {/* Assign Zone */}
-                <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Assign Primary Zone</Text>
-                    <View style={styles.selectWrapper}>
-                        <Text style={styles.selectText}>Choose a zone</Text>
+                        <Text style={styles.selectText}>Staff Role</Text>
                         <MaterialIcons name="expand-more" size={24} color={COLORS.slate500} />
                     </View>
                 </View>
 
                 {/* Password */}
                 <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Password</Text>
                     <View style={styles.passwordWrapper}>
                         <TextInput
                             style={[styles.input, { paddingRight: 48 }]}
                             placeholder="Create a secure password"
                             placeholderTextColor={COLORS.slate400}
                             secureTextEntry={!showPassword}
+                            value={formData.password}
+                            onChangeText={(text) => setFormData({...formData, password: text})}
                         />
                         <TouchableOpacity style={styles.visibilityBtn} onPress={() => setShowPassword(!showPassword)}>
                             <MaterialIcons name={showPassword ? 'visibility-off' : 'visibility'} size={20} color={COLORS.slate500} />
@@ -80,8 +142,15 @@ export default function RegisterStaffScreen() {
 
             {/* Bottom Button */}
             <View style={styles.footer}>
-                <TouchableOpacity style={styles.submitButton} activeOpacity={0.9}>
-                    <Text style={styles.submitText}>Register & Send Invite</Text>
+                <TouchableOpacity 
+                    style={styles.submitButton} 
+                    activeOpacity={0.9}
+                    onPress={handleRegister}
+                    disabled={isLoading}
+                >
+                    <Text style={styles.submitText}>
+                        {isLoading ? 'Registering...' : 'Register & Send Invite'}
+                    </Text>
                     <MaterialIcons name="send" size={20} color={COLORS.white} />
                 </TouchableOpacity>
             </View>
@@ -101,7 +170,6 @@ const styles = StyleSheet.create({
     scrollContent: { paddingHorizontal: 16, paddingBottom: 80 },
     sectionTitle: { fontSize: 24, fontWeight: '700', color: COLORS.slate900, paddingTop: 24, paddingBottom: 24 },
     fieldGroup: { marginBottom: 20, gap: 8 },
-    label: { fontSize: 14, fontWeight: '600', color: COLORS.slate700, marginLeft: 4 },
     input: {
         height: 56, paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.slate200,
         borderRadius: 16, fontSize: 16, color: COLORS.slate900, backgroundColor: COLORS.white,
@@ -121,8 +189,6 @@ const styles = StyleSheet.create({
     submitButton: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
         height: 56, backgroundColor: COLORS.primary, borderRadius: 16,
-        shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
     },
     submitText: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
 });

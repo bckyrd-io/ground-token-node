@@ -51,9 +51,9 @@ export default function OnboardingScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        onPress={() => router.push('/staffLoginScreen')}
+                        onPress={() => router.push('/loginScreen')}
                     >
-                        <Text style={styles.secondaryLink}>Staff Login</Text>
+                        <Text style={styles.secondaryLink}>Login</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -101,11 +101,6 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         overflow: 'hidden',
         backgroundColor: '#f1f5f9',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 4,
     },
     heroImage: {
         width: '100%',
@@ -151,11 +146,6 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         borderRadius: 12,
         alignItems: 'center',
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
     },
     primaryButtonText: {
         color: COLORS.white,

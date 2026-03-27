@@ -69,16 +69,11 @@ const styles = StyleSheet.create({
     },
     card: {
         backgroundColor: COLORS.white,
-        borderRadius: 12,
-        padding: 20,
+        borderRadius: 16,
+        padding: 24,
         alignItems: 'center',
         borderWidth: 1,
         borderColor: COLORS.slate100,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
     },
     cardHeader: {
         width: '100%',

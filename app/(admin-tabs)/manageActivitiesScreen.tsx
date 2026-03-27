@@ -23,7 +23,7 @@ export default function ManageActivitiesScreen() {
             </View>
 
             {/* Add Button */}
-            <TouchableOpacity style={styles.addButton} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.addButton} activeOpacity={0.7} onPress={() => router.push('/addActivityScreen')}>
                 <MaterialIcons name="add" size={20} color={COLORS.primary} />
                 <Text style={styles.addButtonText}>Add New Activity</Text>
             </TouchableOpacity>
@@ -43,12 +43,6 @@ export default function ManageActivitiesScreen() {
                                 <View style={[styles.progressFill, { width: `${activity.percent}%` }]} />
                             </View>
                         </View>
-                        <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => router.push('/updateActivityScreen' as any)}
-                        >
-                            <MaterialIcons name="edit" size={20} color={COLORS.primary} />
-                        </TouchableOpacity>
                     </View>
                 ))}
             </View>
@@ -75,8 +69,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 16,
         backgroundColor: COLORS.white, padding: 16, borderRadius: 16,
         borderWidth: 1, borderColor: COLORS.slate100,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05,
-        shadowRadius: 4, elevation: 2,
     },
     activityImage: { width: 80, height: 80, borderRadius: 12, backgroundColor: COLORS.slate200 },
     activityInfo: { flex: 1 },
@@ -85,8 +77,4 @@ const styles = StyleSheet.create({
     capacityText: { fontSize: 14, color: COLORS.slate600, fontWeight: '500' },
     progressBg: { width: '100%', height: 6, backgroundColor: COLORS.slate100, borderRadius: 9999, marginTop: 8, overflow: 'hidden' },
     progressFill: { height: '100%', backgroundColor: COLORS.primary },
-    editButton: {
-        width: 40, height: 40, borderRadius: 12, borderWidth: 1,
-        borderColor: 'rgba(46,125,50,0.3)', alignItems: 'center', justifyContent: 'center',
-    },
 });

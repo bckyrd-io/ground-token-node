@@ -1,12 +1,93 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useStore } from './store';
+
+// Simple toast utility
+const showToast = (message: string, type: 'success' | 'error' = 'error') => {
+    Alert.alert(
+        type === 'success' ? 'Success' : 'Error',
+        message,
+        [{ text: 'OK', style: 'default' }]
+    );
+};
 
 export default function ConfirmPaymentScreen() {
     const router = useRouter();
+    const { id } = useLocalSearchParams<{ id: string }>();
+    const activityId = id || '1'; // Fallback to '1' if not provided
+    const { activityDetails, fetchActivityDetail } = useStore();
+    const activity = activityDetails[activityId];
     const [selectedProvider, setSelectedProvider] = useState('airtel');
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    
+    // Fetch activity detail on component mount
+    useEffect(() => {
+        if (!activity) {
+            fetchActivityDetail(activityId);
+        }
+    }, [activityId, activity, fetchActivityDetail]);
+
+    // Show loading state while activity detail is being fetched
+    if (!activity) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>Loading activity details...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    const handlePayment = async () => {
+        if (!phoneNumber) {
+            showToast('Please enter phone number');
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const response = await fetch(`${serverIp}/api/payment/process`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    phoneNumber,
+                    amount: activity.price,
+                    provider: selectedProvider,
+                    activityId: id
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showToast('Payment successful! Token generated.', 'success');
+                // Navigate to tokens screen
+                setTimeout(() => {
+                    try {
+                        router.push('/(visitor-tabs)/myTokensScreen');
+                    } catch (error) {
+                        console.error('Navigation error:', error);
+                        router.back(); // Fallback to go back
+                    }
+                }, 2000);
+            } else {
+                showToast(data.message || 'Payment failed');
+            }
+        } catch (error) {
+            console.error('Payment error:', error);
+            showToast('Network error. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -26,15 +107,15 @@ export default function ConfirmPaymentScreen() {
                         <MaterialIcons name="child-care" size={28} color={COLORS.primary} />
                     </View>
                     <View>
-                        <Text style={styles.merchantName}>Gelato Kids Play Access</Text>
-                        <Text style={styles.merchantRef}>Ref: GK-774291</Text>
+                        <Text style={styles.merchantName}>{activity.name}</Text>
+                        <Text style={styles.merchantRef}>Ref: GK-{activity.id}</Text>
                     </View>
                 </View>
 
                 {/* Amount */}
                 <View style={styles.amountCard}>
                     <Text style={styles.amountLabel}>Amount to pay</Text>
-                    <Text style={styles.amountValue}>MK 15,000.00</Text>
+                    <Text style={styles.amountValue}>MK {activity.price}</Text>
                 </View>
 
                 <Text style={styles.instructions}>
@@ -51,6 +132,8 @@ export default function ConfirmPaymentScreen() {
                             placeholder="088XXXXXXX"
                             placeholderTextColor={COLORS.slate400}
                             keyboardType="phone-pad"
+                            value={phoneNumber}
+                            onChangeText={setPhoneNumber}
                         />
                     </View>
                 </View>
@@ -79,9 +162,16 @@ export default function ConfirmPaymentScreen() {
 
             {/* Footer */}
             <View style={styles.footer}>
-                <TouchableOpacity style={styles.confirmButton} activeOpacity={0.9}>
+                <TouchableOpacity 
+                    style={styles.confirmButton} 
+                    activeOpacity={0.9}
+                    onPress={handlePayment}
+                    disabled={isLoading}
+                >
                     <MaterialIcons name="lock" size={20} color={COLORS.white} />
-                    <Text style={styles.confirmText}>Confirm Payment</Text>
+                    <Text style={styles.confirmText}>
+                        {isLoading ? 'Processing...' : 'Confirm Payment'}
+                    </Text>
                 </TouchableOpacity>
                 <View style={styles.securedRow}>
                     <MaterialIcons name="verified-user" size={14} color={COLORS.slate400} />
@@ -94,6 +184,11 @@ export default function ConfirmPaymentScreen() {
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+    loadingText: { fontSize: 16, color: COLORS.slate600, textAlign: 'center' },
+    errorText: { fontSize: 18, color: COLORS.slate700, textAlign: 'center', marginTop: 16, marginBottom: 24 },
+    backButton: { backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+    backButtonText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
     header: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.slate200,
@@ -142,8 +237,6 @@ const styles = StyleSheet.create({
     confirmButton: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
         height: 56, backgroundColor: COLORS.primary, borderRadius: 12,
-        shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
     },
     confirmText: { color: COLORS.white, fontSize: 18, fontWeight: '700' },
     securedRow: {

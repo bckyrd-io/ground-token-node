@@ -1,12 +1,172 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
+import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
+import React, { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const BAR_HEIGHTS = [45, 35, 55, 50, 95, 100, 75];
+interface DashboardData {
+    totalRevenue: number;
+    totalTokens: number;
+    completedTokens: number;
+    totalCapacity: number;
+    totalOccupancy: number;
+    activeStaff: number;
+    weeklyData: Array<{ date: string; visitors: number }>;
+}
+
+interface Activity {
+    name: string;
+    capacity: number;
+    currentOccupancy: number;
+}
+
+interface Token {
+    code: string;
+    status: string;
+    createdAt: string;
+    usedAt?: string;
+    activityName: string;
+    price: number;
+    userName?: string;
+}
+
+interface StaffMember {
+    username: string;
+    role: string;
+    status: string;
+}
 
 export default function AdminDashboardScreen() {
+    const router = useRouter();
+    const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
+
+    const fetchDashboardData = async () => {
+        try {
+            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const response = await fetch(`${serverIp}/api/admin/dashboard`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                setDashboardData(data);
+            } else {
+                Alert.alert('Error', 'Failed to fetch dashboard data');
+            }
+        } catch (error) {
+            console.error('Dashboard fetch error:', error);
+            Alert.alert('Error', 'Network error. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleExportReport = async () => {
+        try {
+            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const response = await fetch(`${serverIp}/api/admin/export-report`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Create text report
+                let reportContent = 'Ground Token Management Report\n';
+                reportContent += `Generated on: ${data.summary.generatedDate}\n\n`;
+                
+                // Add summary
+                reportContent += 'SUMMARY\n';
+                reportContent += `Total Tokens: ${data.summary.totalTokens}\n`;
+                reportContent += `Completed Tokens: ${data.summary.completedTokens}\n`;
+                reportContent += `Total Activities: ${data.summary.totalActivities}\n`;
+                reportContent += `Total Staff: ${data.summary.totalStaff}\n\n`;
+                
+                // Add activities
+                reportContent += 'ACTIVITIES\n';
+                data.activities.slice(0, 3).forEach((activity: Activity) => {
+                    reportContent += `${activity.name} - Cap: ${activity.capacity}, Occ: ${activity.currentOccupancy}\n`;
+                });
+                reportContent += '\n';
+                
+                // Add recent tokens
+                reportContent += 'RECENT TOKENS\n';
+                data.tokens.slice(0, 5).forEach((token: Token) => {
+                    reportContent += `${token.code} - ${token.activityName} - ${token.status}\n`;
+                });
+                reportContent += '\n';
+                
+                // Add staff
+                reportContent += 'STAFF\n';
+                data.staff.slice(0, 3).forEach((staffMember: StaffMember) => {
+                    reportContent += `${staffMember.username} - ${staffMember.role} - ${staffMember.status}\n`;
+                });
+                
+                // Write report to file
+                const fileName = `geralo-token-report-${new Date().toISOString().split('T')[0]}.txt`;
+                const file = new File(FileSystem.Paths.document, fileName);
+                
+                await file.write(reportContent);
+
+                // Share the report
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(file.uri, {
+                        dialogTitle: 'Share Ground Token Report',
+                    });
+                } else {
+                    Alert.alert('Success', `Report saved to ${file.uri}`);
+                }
+                
+                Alert.alert('Success', 'Report generated and ready to share');
+            } else {
+                Alert.alert('Error', 'Failed to export report');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            Alert.alert('Error', 'Failed to generate report. Please try again.');
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <Text>Loading dashboard...</Text>
+            </View>
+        );
+    }
+
+    if (!dashboardData) {
+        return (
+            <View style={styles.errorContainer}>
+                <Text>Failed to load dashboard data</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={fetchDashboardData}>
+                    <Text style={styles.retryText}>Retry</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    // Prepare chart data
+    const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const today = new Date();
+    const maxVisitors = Math.max(...dashboardData.weeklyData.map(d => d.visitors), 1);
+    const chartData = DAYS.map((day, index) => {
+        const date = new Date(today);
+        date.setDate(today.getDate() - (6 - index));
+        const dateStr = date.toISOString().split('T')[0];
+        const dayData = dashboardData.weeklyData.find(d => d.date === dateStr);
+        const visitorCount = dayData?.visitors || 0;
+        return {
+            day,
+            visitors: visitorCount,
+            height: maxVisitors > 0 ? Math.max(5, (visitorCount / maxVisitors) * 100) : 5 // Proper percentage scaling
+        };
+    });
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             {/* Revenue Card */}
@@ -14,16 +174,30 @@ export default function AdminDashboardScreen() {
                 <Text style={styles.cardLabel}>Total Revenue</Text>
                 <View style={styles.revenueRow}>
                     <Text style={styles.currencyPrefix}>MWK</Text>
-                    <Text style={styles.revenueValue}>1,250,000</Text>
+                    <Text style={styles.revenueValue}>{dashboardData.totalRevenue.toLocaleString()}</Text>
                 </View>
                 <View style={styles.trendRow}>
                     <MaterialIcons name="trending-up" size={18} color={COLORS.primary} />
-                    <Text style={styles.trendText}>+12% vs last month</Text>
+                    <Text style={styles.trendText}>
+                        {dashboardData.completedTokens} of {dashboardData.totalTokens} completed
+                    </Text>
+                </View>
+            </View>
+
+            {/* Stats Row */}
+            <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                    <Text style={styles.statLabel}>Capacity</Text>
+                    <Text style={styles.statValue}>{dashboardData.totalOccupancy}/{dashboardData.totalCapacity}</Text>
+                </View>
+                <View style={styles.statCard}>
+                    <Text style={styles.statLabel}>Active Staff</Text>
+                    <Text style={styles.statValue}>{dashboardData.activeStaff}</Text>
                 </View>
             </View>
 
             {/* Export Button */}
-            <TouchableOpacity style={styles.exportButton} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.exportButton} activeOpacity={0.8} onPress={handleExportReport}>
                 <MaterialIcons name="file-download" size={20} color={COLORS.white} />
                 <Text style={styles.exportText}>Export Report</Text>
             </TouchableOpacity>
@@ -47,29 +221,29 @@ export default function AdminDashboardScreen() {
 
                 {/* Bar Chart */}
                 <View style={styles.chartContainer}>
-                    {DAYS.map((day, index) => {
-                        const height = BAR_HEIGHTS[index];
-                        const isPeak = height >= 90;
+                    {chartData.map((item, index) => {
+                        const isPeak = item.visitors > 0 && item.visitors >= maxVisitors * 0.6; // Peak if 60% or more of max
                         return (
-                            <View key={day} style={styles.barColumn}>
+                            <View key={item.day} style={styles.barColumn}>
                                 <View style={styles.barWrapper}>
                                     <View style={[
                                         styles.bar,
                                         {
-                                            height: `${height}%`,
+                                            height: `${item.height}%`,
                                             backgroundColor: isPeak ? COLORS.primary : 'rgba(46,125,50,0.2)',
                                         },
                                     ]} />
                                 </View>
-                                <Text style={[styles.barLabel, isPeak && styles.barLabelActive]}>{day}</Text>
+                                <Text style={[styles.barLabel, isPeak && styles.barLabelActive]}>{item.day}</Text>
                             </View>
                         );
                     })}
                 </View>
                 <Text style={styles.chartFooter}>
                     Peak visitation identified on{' '}
-                    <Text style={styles.chartHighlight}>Fridays</Text> and{' '}
-                    <Text style={styles.chartHighlight}>Saturdays</Text>
+                    <Text style={styles.chartHighlight}>
+                        {chartData.filter(d => d.visitors > 0 && d.visitors >= maxVisitors * 0.6).map(d => d.day).join(', ') || 'No peak days'}
+                    </Text>
                 </Text>
             </View>
         </ScrollView>
@@ -82,8 +256,6 @@ const styles = StyleSheet.create({
     card: {
         backgroundColor: COLORS.white, borderRadius: 12, padding: 24,
         borderWidth: 1, borderColor: COLORS.slate100,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     cardLabel: { fontSize: 12, color: COLORS.slate500, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
     revenueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 8 },
@@ -94,8 +266,6 @@ const styles = StyleSheet.create({
     exportButton: {
         backgroundColor: COLORS.primary, paddingVertical: 16, borderRadius: 12,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1,
-        shadowRadius: 4, elevation: 3,
     },
     exportText: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
     chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
@@ -117,4 +287,54 @@ const styles = StyleSheet.create({
     barLabelActive: { fontWeight: '700', color: COLORS.primary },
     chartFooter: { fontSize: 12, color: COLORS.slate500, textAlign: 'center', marginTop: 24 },
     chartHighlight: { fontWeight: '700', color: COLORS.primary, fontSize: 14 },
+    loadingContainer: { 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: COLORS.bgLight 
+    },
+    errorContainer: { 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: COLORS.bgLight,
+        paddingHorizontal: 32 
+    },
+    retryButton: {
+        marginTop: 16,
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8
+    },
+    retryText: {
+        color: COLORS.white,
+        fontWeight: '600'
+    },
+    statsRow: {
+        flexDirection: 'row',
+        gap: 12
+    },
+    statCard: {
+        flex: 1,
+        backgroundColor: COLORS.white,
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: COLORS.slate100,
+        alignItems: 'center'
+    },
+    statLabel: {
+        fontSize: 12,
+        color: COLORS.slate500,
+        fontWeight: '500',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5
+    },
+    statValue: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: COLORS.slate900,
+        marginTop: 4
+    },
 });

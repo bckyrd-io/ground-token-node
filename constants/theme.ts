@@ -58,6 +58,7 @@ export const COLORS = {
   amber100: '#fef3c7',
   amber50: '#fffbeb',
   green500: '#22c55e',
+  green50: '#f0fdf4',
   amber400: '#fbbf24',
   red600: '#dc2626',
   red500: '#ef4444',

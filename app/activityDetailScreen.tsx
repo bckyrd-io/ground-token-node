@@ -19,6 +19,13 @@ export default function ActivityDetailScreen() {
         }
     }, [activityId, activity, fetchActivityDetail]);
 
+    // Parse safetyRules from database (might be JSON string)
+    const safetyRules = activity?.safetyRules 
+        ? (typeof activity.safetyRules === 'string' 
+            ? JSON.parse(activity.safetyRules) 
+            : activity.safetyRules)
+        : [];
+
     if (!activity) {
         return (
             <SafeAreaView style={styles.safeArea}>
@@ -71,7 +78,7 @@ export default function ActivityDetailScreen() {
                         <MaterialIcons name="gavel" size={20} color={COLORS.primary} />
                         <Text style={styles.safetyTitle}>Safety Rules</Text>
                     </View>
-                    {activity.safetyRules.map((rule, index) => (
+                    {safetyRules.map((rule: string, index: number) => (
                         <View key={index} style={styles.ruleRow}>
                             <MaterialIcons name="check-circle" size={18} color={COLORS.primary} />
                             <Text style={styles.ruleText}>{rule}</Text>
@@ -79,18 +86,6 @@ export default function ActivityDetailScreen() {
                     ))}
                 </View>
             </ScrollView>
-
-            {/* Footer - Buy Token Button */}
-            <View style={styles.footer}>
-                <TouchableOpacity
-                    style={styles.buyButton}
-                    activeOpacity={0.9}
-                    onPress={() => router.push({ pathname: '/confirmPaymentScreen', params: { id: activityId } })}
-                >
-                    <MaterialIcons name="shopping-cart" size={20} color={COLORS.white} />
-                    <Text style={styles.buyButtonText}>Buy Token</Text>
-                </TouchableOpacity>
-            </View>
         </SafeAreaView>
     );
 }
@@ -117,36 +112,9 @@ const styles = StyleSheet.create({
     safetyCard: {
         marginHorizontal: 16, backgroundColor: COLORS.white, borderRadius: 16,
         padding: 20, borderWidth: 1, borderColor: COLORS.slate100,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05,
-        shadowRadius: 4, elevation: 2,
     },
     safetyHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
     safetyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.slate900 },
     ruleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
     ruleText: { fontSize: 14, color: COLORS.slate700, fontWeight: '500', flex: 1, lineHeight: 20 },
-    footer: {
-        padding: 16,
-        borderTopWidth: 1,
-        borderTopColor: COLORS.slate200,
-        backgroundColor: COLORS.white,
-    },
-    buyButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        height: 56,
-        backgroundColor: COLORS.primary,
-        borderRadius: 12,
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    buyButtonText: {
-        color: COLORS.white,
-        fontSize: 18,
-        fontWeight: '700',
-    },
 });

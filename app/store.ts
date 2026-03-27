@@ -2,8 +2,13 @@ import { create } from 'zustand';
 
 // Define types
 type Profile = {
+    id: string | null;
     username: string;
     avatar: string;
+    email: string;
+    phone: string;
+    role: string;
+    createdAt: string;
 };
 
 type Activity = {
@@ -27,10 +32,14 @@ type AdminActivity = {
 };
 
 type ActivityDetail = {
+    id: string;
     name: string;
     rating: number;
     reviewCount: number;
     description: string;
+    price: string;
+    capacity: number;
+    currentOccupancy: number;
     image: string;
     safetyRules: string[];
 };
@@ -46,7 +55,7 @@ type Token = {
 
 type StaffMember = {
     id: string;
-    name: string;
+    username: string;
     zone: string;
     status: 'Active' | 'Off-Duty';
     image: string;
@@ -80,8 +89,13 @@ type StoreState = {
 export const useStore = create<StoreState>((set, get) => ({
     // Initial state
     profile: {
+        id: null,
         username: 'JohnDoe',
         avatar: 'https://picsum.photos/200',
+        email: 'john.doe@example.com',
+        phone: '+265123456789',
+        role: 'visitor',
+        createdAt: new Date().toISOString()
     },
     serverIp: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000',
     activities: [],
@@ -99,10 +113,15 @@ export const useStore = create<StoreState>((set, get) => ({
             const data = await response.json();
             console.log('Fetched profile data:', data);
 
-            // Use default image if avatar is missing
+            // Use complete profile data with defaults
             const profileData = {
-                username: data.username,
+                id: data.id || null,
+                username: data.username || 'Guest',
                 avatar: data.avatar || 'https://picsum.photos/200',
+                email: data.email || 'visitor@gelatokids.com',
+                phone: data.phone || '+2651234572',
+                role: data.role || 'visitor',
+                createdAt: data.createdAt || new Date().toISOString()
             };
 
             set({ profile: profileData });

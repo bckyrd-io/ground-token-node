@@ -1,18 +1,109 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
-const SESSIONS = [
-    { id: 'GT-4829', zone: 'Ball Pit Area', time: '12:45 left', timeColor: COLORS.orange600 },
-    { id: 'GT-9214', zone: 'Slide Tower', time: '45:20 left', timeColor: COLORS.primary },
-    { id: 'GT-1105', zone: 'Obstacle Course', time: '28:15 left', timeColor: COLORS.primary },
-    { id: 'GT-8832', zone: 'General Play', time: '02:10 left', timeColor: COLORS.red600 },
-];
+interface Token {
+    id: string;
+    name: string;
+    code: string;
+    status: string;
+    queuePosition?: string;
+    qrImage: string;
+    username?: string;
+    createdAt?: string;
+    expiresAt?: string;
+}
+
+interface Activity {
+    id: string;
+    name: string;
+    currentOccupancy: number;
+    capacity: number;
+}
 
 export default function CapacityControlScreen() {
     const [isOpen, setIsOpen] = React.useState(true);
+    const [tokens, setTokens] = useState<Token[]>([]);
+    const [activities, setActivities] = useState<Activity[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchData();
+        const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+        return () => clearInterval(interval);
+    }, []);
+
+    const fetchData = async () => {
+        try {
+            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            
+            // Fetch tokens and activities
+            const [tokensResponse, activitiesResponse] = await Promise.all([
+                fetch(`${serverIp}/api/tokens`),
+                fetch(`${serverIp}/api/activities`)
+            ]);
+
+            if (tokensResponse.ok) {
+                const tokensData = await tokensResponse.json();
+                setTokens(tokensData);
+            }
+
+            if (activitiesResponse.ok) {
+                const activitiesData = await activitiesResponse.json();
+                setActivities(activitiesData);
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Calculate total occupancy
+    const totalOccupancy = activities.reduce((sum, activity) => sum + activity.currentOccupancy, 0);
+    const totalCapacity = activities.reduce((sum, activity) => sum + activity.capacity, 0);
+    const occupancyPercentage = totalCapacity > 0 ? Math.round((totalOccupancy / totalCapacity) * 100) : 0;
+    const remainingSpots = totalCapacity - totalOccupancy;
+
+    // Get active tokens (sessions)
+    const activeTokens = tokens.filter(token => token.status === 'ready');
+    
+    // Calculate time remaining for each token
+    const getSessionTimeRemaining = (token: Token) => {
+        if (!token.createdAt) {
+            // Fallback for demo if no timestamp
+            const hash = token.code.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const minutes = 30 + (hash % 90);
+            return `${Math.floor(minutes / 60)}:${(minutes % 60).toString().padStart(2, '0')} left`;
+        }
+        
+        const now = new Date();
+        const created = new Date(token.createdAt);
+        const expires = token.expiresAt ? new Date(token.expiresAt) : new Date(created.getTime() + 2 * 60 * 60 * 1000); // 2 hours default
+        
+        const diffMs = expires.getTime() - now.getTime();
+        if (diffMs <= 0) return 'Expired';
+        
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')} left`;
+        } else {
+            return `${minutes}:${(Math.floor((diffMs % (1000 * 60)) / 1000)).toString().padStart(2, '0')} left`;
+        }
+    };
+
+    const getTimeColor = (timeRemaining: string) => {
+        if (timeRemaining === 'Expired') return COLORS.red600;
+        const parts = timeRemaining.split(':');
+        const minutes = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        if (minutes < 15) return COLORS.red600;
+        if (minutes < 30) return COLORS.orange600;
+        return COLORS.primary;
+    };
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -44,39 +135,51 @@ export default function CapacityControlScreen() {
                     <View>
                         <Text style={styles.occupancyLabel}>Current Occupancy</Text>
                         <Text style={styles.occupancyValue}>
-                            42 <Text style={styles.occupancyMax}>/ 50 kids</Text>
+                            {totalOccupancy} <Text style={styles.occupancyMax}>/ {totalCapacity} kids</Text>
                         </Text>
                     </View>
                     <View style={styles.percentBadge}>
-                        <Text style={styles.percentText}>84% Full</Text>
+                        <Text style={styles.percentText}>{occupancyPercentage}% Full</Text>
                     </View>
                 </View>
                 <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: '84%' }]} />
+                    <View style={[styles.progressBarFill, { width: `${occupancyPercentage}%` }]} />
                 </View>
-                <Text style={styles.spotsText}>8 spots remaining</Text>
+                <Text style={styles.spotsText}>{remainingSpots} spots remaining</Text>
             </View>
 
             {/* Active Sessions */}
-            <Text style={styles.sessionsTitle}>Active Sessions</Text>
+            <Text style={styles.sessionsTitle}>Active Sessions ({activeTokens.length})</Text>
             <View style={styles.sessionsList}>
-                {SESSIONS.map((session) => (
-                    <View key={session.id} style={styles.sessionCard}>
-                        <View style={styles.sessionLeft}>
-                            <View style={styles.sessionIcon}>
-                                <MaterialIcons name="child-care" size={20} color={COLORS.primary} />
+                {loading ? (
+                    <Text style={styles.loadingText}>Loading sessions...</Text>
+                ) : activeTokens.length === 0 ? (
+                    <Text style={styles.emptyText}>No active sessions</Text>
+                ) : (
+                    activeTokens.map((token) => {
+                        const timeRemaining = getSessionTimeRemaining(token);
+                        return (
+                            <View key={token.id} style={styles.sessionCard}>
+                                <View style={styles.sessionLeft}>
+                                    <View style={styles.sessionIcon}>
+                                        <MaterialIcons name="child-care" size={20} color={COLORS.primary} />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.sessionId}>#{token.code}</Text>
+                                        <Text style={styles.sessionZone}>{token.name}</Text>
+                                        <Text style={styles.sessionUser}>{token.username || 'Guest'}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.sessionRight}>
+                                    <Text style={[styles.sessionTime, { color: getTimeColor(timeRemaining) }]}>
+                                        {timeRemaining}
+                                    </Text>
+                                    <Text style={styles.sessionLabel}>Time Remaining</Text>
+                                </View>
                             </View>
-                            <View>
-                                <Text style={styles.sessionId}>#{session.id}</Text>
-                                <Text style={styles.sessionZone}>{session.zone}</Text>
-                            </View>
-                        </View>
-                        <View style={styles.sessionRight}>
-                            <Text style={[styles.sessionTime, { color: session.timeColor }]}>{session.time}</Text>
-                            <Text style={styles.sessionLabel}>Time Remaining</Text>
-                        </View>
-                    </View>
-                ))}
+                        );
+                    })
+                )}
             </View>
 
             {/* Zone Camera View */}
@@ -140,15 +243,17 @@ const styles = StyleSheet.create({
     },
     sessionId: { fontSize: 14, fontWeight: '700', color: COLORS.slate900 },
     sessionZone: { fontSize: 12, color: COLORS.slate500, marginTop: 2 },
+    sessionUser: { fontSize: 11, color: COLORS.slate400, marginTop: 2 },
     sessionRight: { alignItems: 'flex-end' },
-    sessionTime: { fontSize: 14, fontWeight: '700' },
-    sessionLabel: { fontSize: 10, color: COLORS.slate400, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
+    sessionTime: { fontSize: 14, fontWeight: '700', marginTop: 2 },
+    sessionLabel: { fontSize: 11, color: COLORS.slate500, marginTop: 2 },
+    loadingText: { fontSize: 14, color: COLORS.slate500, textAlign: 'center', padding: 20 },
+    emptyText: { fontSize: 14, color: COLORS.slate400, textAlign: 'center', padding: 20 },
     cameraView: { marginHorizontal: 16, height: 192, borderRadius: 12, overflow: 'hidden', position: 'relative', backgroundColor: COLORS.slate200 },
     cameraImage: { ...StyleSheet.absoluteFillObject, opacity: 0.8 },
     cameraOverlay: {
         ...StyleSheet.absoluteFillObject,
         justifyContent: 'flex-end', padding: 16,
-
     },
     cameraLabel: { color: COLORS.white, fontWeight: '700', fontSize: 14 },
 });

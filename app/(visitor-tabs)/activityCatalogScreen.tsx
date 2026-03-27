@@ -19,8 +19,8 @@ export default function ActivityCatalogScreen() {
                 <TouchableOpacity
                     key={activity.id}
                     style={styles.card}
-                    activeOpacity={0.9}
-                    onPress={() => router.push('/activityDetailScreen' as any)}
+                    onPress={() => router.push({ pathname: '/activityDetailScreen', params: { id: activity.id } })}
+                    activeOpacity={0.7}
                 >
                     {/* Image */}
                     <View style={styles.imageContainer}>
@@ -43,7 +43,7 @@ export default function ActivityCatalogScreen() {
                         <Text style={styles.cardDescription}>{activity.description}</Text>
                         <TouchableOpacity
                             style={styles.bookButton}
-                            onPress={() => router.push({ pathname: '/activityDetailScreen', params: { id: activity.id } })}
+                            onPress={() => router.push({ pathname: '/confirmPaymentScreen', params: { id: activity.id } })}
                         >
                             <Text style={styles.bookButtonText}>Book Access</Text>
                         </TouchableOpacity>
@@ -68,11 +68,8 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.white,
         borderRadius: 12,
         overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 12,
-        elevation: 3,
+        borderWidth: 1,
+        borderColor: COLORS.slate200,
     },
     imageContainer: {
         position: 'relative',
