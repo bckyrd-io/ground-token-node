@@ -41,6 +41,16 @@ export default function StaffManagementScreen() {
             <View style={styles.staffList}>
                 {staff.map((member) => {
                     const isOffDuty = member.status === 'Off-Duty';
+                    const isUnassigned = member.status === 'Unassigned';
+                    
+                    const badgeStyle = isUnassigned 
+                        ? styles.unassignedBadge 
+                        : (isOffDuty ? styles.offDutyBadge : styles.activeBadge);
+                        
+                    const textStyle = isUnassigned 
+                        ? styles.unassignedText 
+                        : (isOffDuty ? styles.offDutyText : styles.activeText);
+
                     return (
                         <View key={member.id} style={[styles.staffCard, isOffDuty && { opacity: 0.75 }]}>
                             <Image
@@ -49,11 +59,11 @@ export default function StaffManagementScreen() {
                                 contentFit="cover"
                             />
                             <View style={styles.staffInfo}>
-                                <Text style={styles.staffName}>{member.username}</Text>
+                                <Text style={styles.staffName}>{member.name}</Text>
                                 <Text style={styles.staffZone}>{member.zone}</Text>
                             </View>
-                            <View style={[styles.statusBadge, isOffDuty ? styles.offDutyBadge : styles.activeBadge]}>
-                                <Text style={[styles.statusText, isOffDuty ? styles.offDutyText : styles.activeText]}>
+                            <View style={[styles.statusBadge, badgeStyle]}>
+                                <Text style={[styles.statusText, textStyle]}>
                                     {member.status}
                                 </Text>
                             </View>
@@ -96,7 +106,9 @@ const styles = StyleSheet.create({
     statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 9999 },
     activeBadge: { backgroundColor: 'rgba(46,125,50,0.1)' },
     offDutyBadge: { backgroundColor: COLORS.slate100 },
+    unassignedBadge: { backgroundColor: 'rgba(245,158,11,0.1)' },
     statusText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
     activeText: { color: COLORS.primary },
     offDutyText: { color: COLORS.slate500 },
+    unassignedText: { color: '#f59e0b' },
 });

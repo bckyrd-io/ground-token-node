@@ -3,6 +3,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useStore } from '../store';
 
 interface Token {
     id: string;
@@ -24,35 +25,30 @@ interface Activity {
 }
 
 export default function CapacityControlScreen() {
+    const { profile, staffActivity, fetchStaffActivity, fetchTokens } = useStore();
     const [isOpen, setIsOpen] = React.useState(true);
     const [tokens, setTokens] = useState<Token[]>([]);
-    const [activities, setActivities] = useState<Activity[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (profile?.id) {
+            fetchStaffActivity(profile.id);
+        }
         fetchData();
         const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
         return () => clearInterval(interval);
-    }, []);
+    }, [profile?.id, fetchStaffActivity]);
 
     const fetchData = async () => {
         try {
             const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
-            
-            // Fetch tokens and activities
-            const [tokensResponse, activitiesResponse] = await Promise.all([
-                fetch(`${serverIp}/api/tokens`),
-                fetch(`${serverIp}/api/activities`)
-            ]);
 
+            // Fetch tokens
+            const tokensResponse = await fetch(`${serverIp}/api/tokens`);
+            
             if (tokensResponse.ok) {
                 const tokensData = await tokensResponse.json();
                 setTokens(tokensData);
-            }
-
-            if (activitiesResponse.ok) {
-                const activitiesData = await activitiesResponse.json();
-                setActivities(activitiesData);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -61,15 +57,20 @@ export default function CapacityControlScreen() {
         }
     };
 
-    // Calculate total occupancy
-    const totalOccupancy = activities.reduce((sum, activity) => sum + activity.currentOccupancy, 0);
-    const totalCapacity = activities.reduce((sum, activity) => sum + activity.capacity, 0);
+    // Filter tokens for the current staff's assigned activity
+    const activityTokens = staffActivity 
+        ? tokens.filter(token => token.name === staffActivity.name)
+        : [];
+    
+    // Calculate occupancy for the assigned activity
+    const totalOccupancy = staffActivity ? staffActivity.currentOccupancy : 0;
+    const totalCapacity = staffActivity ? staffActivity.capacity : 0;
     const occupancyPercentage = totalCapacity > 0 ? Math.round((totalOccupancy / totalCapacity) * 100) : 0;
     const remainingSpots = totalCapacity - totalOccupancy;
 
-    // Get active tokens (sessions)
-    const activeTokens = tokens.filter(token => token.status === 'ready');
-    
+    // Get active tokens (sessions) for this activity
+    const activeTokens = activityTokens.filter(token => token.status === 'ready');
+
     // Calculate time remaining for each token
     const getSessionTimeRemaining = (token: Token) => {
         if (!token.createdAt) {
@@ -78,17 +79,17 @@ export default function CapacityControlScreen() {
             const minutes = 30 + (hash % 90);
             return `${Math.floor(minutes / 60)}:${(minutes % 60).toString().padStart(2, '0')} left`;
         }
-        
+
         const now = new Date();
         const created = new Date(token.createdAt);
         const expires = token.expiresAt ? new Date(token.expiresAt) : new Date(created.getTime() + 2 * 60 * 60 * 1000); // 2 hours default
-        
+
         const diffMs = expires.getTime() - now.getTime();
         if (diffMs <= 0) return 'Expired';
-        
+
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        
+
         if (hours > 0) {
             return `${hours}:${minutes.toString().padStart(2, '0')} left`;
         } else {
@@ -105,28 +106,48 @@ export default function CapacityControlScreen() {
         return COLORS.primary;
     };
 
+    const handleCapacityControlToggle = async (newValue: boolean) => {
+        if (!staffActivity) return;
+        
+        try {
+            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const response = await fetch(`${serverIp}/api/activities/${staffActivity.id}/capacity-control`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ isOpen: newValue }),
+            });
+            
+            if (response.ok) {
+                setIsOpen(newValue);
+                console.log(`Capacity control ${newValue ? 'opened' : 'closed'}`);
+            } else {
+                console.error('Failed to update capacity control');
+            }
+        } catch (error) {
+            console.error('Error updating capacity control:', error);
+        }
+    };
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-            {/* Zone Title */}
-            <View style={styles.zoneHeader}>
-                <Text style={styles.zoneName}>Jungle Safari Zone</Text>
-                <Text style={styles.zoneSubtitle}>Managed by Gelato Kids Staff</Text>
+            
+            {/* Zone Camera View */}
+            <View style={styles.cameraView}>
+                <Image
+                    source={{ uri: staffActivity?.image || 'https://via.placeholder.com/400x192?text=No+Image' }}
+                    style={styles.cameraImage}
+                    contentFit="cover"
+                />
+                <View style={styles.cameraOverlay}>
+                    <Text style={styles.cameraLabel}>Zone View: {staffActivity?.name || 'Loading...'}</Text>
+                </View>
             </View>
 
-            {/* Status Toggle */}
-            <View style={styles.statusCard}>
-                <View>
-                    <Text style={styles.statusTitle}>Play Area Status</Text>
-                    <Text style={[styles.statusValue, { color: isOpen ? COLORS.primary : COLORS.red600 }]}>
-                        {isOpen ? 'Currently Available' : 'Closed'}
-                    </Text>
-                </View>
-                <Switch
-                    value={isOpen}
-                    onValueChange={setIsOpen}
-                    trackColor={{ false: COLORS.slate200, true: COLORS.primary }}
-                    thumbColor={COLORS.white}
-                />
+            {/* Zone Title */}
+            <View style={styles.zoneHeader}>
+                <Text style={styles.zoneName}>{staffActivity?.name || 'No Activity Assigned'}</Text>
             </View>
 
             {/* Occupancy Card */}
@@ -138,9 +159,12 @@ export default function CapacityControlScreen() {
                             {totalOccupancy} <Text style={styles.occupancyMax}>/ {totalCapacity} kids</Text>
                         </Text>
                     </View>
-                    <View style={styles.percentBadge}>
-                        <Text style={styles.percentText}>{occupancyPercentage}% Full</Text>
-                    </View>
+                    <Switch
+                        value={isOpen}
+                        onValueChange={handleCapacityControlToggle}
+                        trackColor={{ false: COLORS.slate200, true: COLORS.primary }}
+                        thumbColor={COLORS.white}
+                    />
                 </View>
                 <View style={styles.progressBarBg}>
                     <View style={[styles.progressBarFill, { width: `${occupancyPercentage}%` }]} />
@@ -149,12 +173,14 @@ export default function CapacityControlScreen() {
             </View>
 
             {/* Active Sessions */}
-            <Text style={styles.sessionsTitle}>Active Sessions ({activeTokens.length})</Text>
+            <Text style={styles.sessionsTitle}>Queue ({activeTokens.length})</Text>
             <View style={styles.sessionsList}>
                 {loading ? (
                     <Text style={styles.loadingText}>Loading sessions...</Text>
+                ) : !staffActivity ? (
+                    <Text style={styles.emptyText}>No activity assigned to this staff member</Text>
                 ) : activeTokens.length === 0 ? (
-                    <Text style={styles.emptyText}>No active sessions</Text>
+                    <Text style={styles.emptyText}>No active sessions for {staffActivity.name}</Text>
                 ) : (
                     activeTokens.map((token) => {
                         const timeRemaining = getSessionTimeRemaining(token);
@@ -182,17 +208,6 @@ export default function CapacityControlScreen() {
                 )}
             </View>
 
-            {/* Zone Camera View */}
-            <View style={styles.cameraView}>
-                <Image
-                    source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBno8XAFBPNUOUPQUm313QJGOhfThx8y-96N0xFS7OskkYujrlDS0LMyaz2tYo5raa64jAr3uZz-zYK449OSzwqvH3K1-TTMStH45eWwYIn2hm6Ar2gGYu_X2h7JRI8lf5N29DImn519bg-gMPat27lU4JwQm0uQtq3Qiphpcrk1d8N4j5KRlcwmj5jJm-7HaNg5ZXO-7u9Y8SJdUvM6RC7bg9lpCxrAeLA8Bw3HV_kNHdjrYCedoVAqR80saLqsgMt5PtTUDZN99s5' }}
-                    style={styles.cameraImage}
-                    contentFit="cover"
-                />
-                <View style={styles.cameraOverlay}>
-                    <Text style={styles.cameraLabel}>Zone View: Camera 04</Text>
-                </View>
-            </View>
         </ScrollView>
     );
 }
@@ -249,7 +264,7 @@ const styles = StyleSheet.create({
     sessionLabel: { fontSize: 11, color: COLORS.slate500, marginTop: 2 },
     loadingText: { fontSize: 14, color: COLORS.slate500, textAlign: 'center', padding: 20 },
     emptyText: { fontSize: 14, color: COLORS.slate400, textAlign: 'center', padding: 20 },
-    cameraView: { marginHorizontal: 16, height: 192, borderRadius: 12, overflow: 'hidden', position: 'relative', backgroundColor: COLORS.slate200 },
+    cameraView: { marginHorizontal: 16, height: 192, borderRadius: 12, overflow: 'hidden', marginTop: 20, position: 'relative', backgroundColor: COLORS.slate200 },
     cameraImage: { ...StyleSheet.absoluteFillObject, opacity: 0.8 },
     cameraOverlay: {
         ...StyleSheet.absoluteFillObject,

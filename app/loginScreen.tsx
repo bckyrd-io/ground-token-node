@@ -2,7 +2,9 @@ import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useStore } from './store';
 
 // Simple toast utility
 const showToast = (message: string, type: 'success' | 'error' = 'error') => {
@@ -15,6 +17,7 @@ const showToast = (message: string, type: 'success' | 'error' = 'error') => {
 
 export default function LoginScreen() {
     const router = useRouter();
+    const { setProfile } = useStore();
     const [showPassword, setShowPassword] = useState(false);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -43,13 +46,17 @@ export default function LoginScreen() {
             if (response.ok && data.success) {
                 showToast('Login successful!', 'success');
                 
-                // Store user data (in production, use secure storage)
                 const userData = {
                     id: data.user.id,
                     username: data.user.username,
                     role: data.user.role,
                     email: data.user.email,
+                    phone: data.user.phone || '',
+                    avatar: 'https://picsum.photos/200',
+                    createdAt: new Date().toISOString()
                 };
+                
+                setProfile(userData);
                 
                 // Navigate based on user role
                 if (data.user.role === 'visitor') {

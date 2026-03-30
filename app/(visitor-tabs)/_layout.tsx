@@ -12,7 +12,7 @@ interface MenuModalProps {
 // Simple menu component
 const MenuModal: React.FC<MenuModalProps> = ({ visible, onClose, onLogout }) => (
     <Modal
-        transparent={true}
+        transparent
         visible={visible}
         animationType="fade"
         onRequestClose={onClose}

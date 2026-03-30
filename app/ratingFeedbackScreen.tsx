@@ -3,7 +3,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from './store';
 
 export default function RatingFeedbackScreen() {
@@ -132,7 +133,7 @@ export default function RatingFeedbackScreen() {
                         placeholderTextColor={COLORS.slate400}
                         value={comment}
                         onChangeText={setComment}
-                        textAlignVertical="top"
+                        {...(Platform.OS === 'android' && { textAlignVertical: 'top' })}
                     />
                 </View>
 
@@ -204,7 +205,8 @@ const styles = StyleSheet.create({
     textArea: {
         width: '100%', minHeight: 160, padding: 16,
         backgroundColor: '#f8fafc', borderWidth: 1, borderColor: COLORS.slate200,
-        borderRadius: 12, fontSize: 16, color: COLORS.slate900, textAlignVertical: 'top',
+        borderRadius: 12, fontSize: 16, color: COLORS.slate900,
+        ...(Platform.OS === 'android' && { textAlignVertical: 'top' }),
     },
     tagsSection: { width: '100%', marginTop: 24 },
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16, width: '100%' },

@@ -1,4 +1,5 @@
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import { useIsFocused } from '@react-navigation/native';
+import { CameraView } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
@@ -11,12 +12,13 @@ const COLORS = {
 
 export default function StaffScannerScreen() {
     const router = useRouter();
+    const isFocused = useIsFocused();
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [scanned, setScanned] = useState(false);
 
     useEffect(() => {
         (async () => {
-            const { status } = await BarCodeScanner.requestPermissionsAsync();
+            const { status } = await CameraView.requestCameraPermissionsAsync();
             setHasPermission(status === 'granted');
         })();
     }, []);
@@ -54,10 +56,17 @@ export default function StaffScannerScreen() {
 
     return (
         <View style={styles.container}>
-            <BarCodeScanner
-                onBarCodeScanned={handleBarCodeScanned}
-                style={StyleSheet.absoluteFillObject}
-            />
+            {isFocused ? (
+                <CameraView
+                    onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                    barcodeScannerSettings={{
+                        barcodeTypes: ['qr'],
+                    }}
+                    style={StyleSheet.absoluteFillObject}
+                />
+            ) : (
+                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: COLORS.black }]} />
+            )}
 
             <View style={styles.overlay} />
 

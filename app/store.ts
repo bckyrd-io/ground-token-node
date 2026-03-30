@@ -55,10 +55,22 @@ type Token = {
 
 type StaffMember = {
     id: string;
-    username: string;
+    username?: string;
+    name: string;
     zone: string;
-    status: 'Active' | 'Off-Duty';
+    status: 'Active' | 'Off-Duty' | 'Unassigned';
     image: string;
+};
+
+type StaffActivity = {
+    id: string;
+    name: string;
+    description: string;
+    price: string;
+    capacity: number;
+    currentOccupancy: number;
+    image: string;
+    safetyRules: string[];
 };
 
 type FeedbackOptions = {
@@ -75,6 +87,7 @@ type StoreState = {
     activityDetails: { [key: string]: ActivityDetail };
     tokens: Token[];
     staff: StaffMember[];
+    staffActivity: StaffActivity | null;
     feedbackOptions: FeedbackOptions | null;
     fetchProfile: () => Promise<void>;
     fetchActivities: () => Promise<void>;
@@ -82,7 +95,16 @@ type StoreState = {
     fetchActivityDetail: (id: string) => Promise<void>;
     fetchTokens: () => Promise<void>;
     fetchStaff: () => Promise<void>;
+    fetchStaffActivity: (staffId: string) => Promise<void>;
     fetchFeedbackOptions: () => Promise<void>;
+    setProfile: (profile: Profile) => void;
+};
+
+// Helper function to prepend server URL to image paths
+const getImageUrl = (imagePath: string | null, serverIp: string): string | null => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath; // Already a full URL
+    return `${serverIp}${imagePath}`;
 };
 
 // Zustand store
@@ -103,7 +125,9 @@ export const useStore = create<StoreState>((set, get) => ({
     activityDetails: {},
     tokens: [],
     staff: [],
+    staffActivity: null,
     feedbackOptions: null,
+    setProfile: (profile) => set({ profile }),
 
     // Fetch profile data
     fetchProfile: async () => {
@@ -156,6 +180,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
                 return {
                     ...activity,
+                    image: getImageUrl(activity.image, serverIp),
                     waitTime,
                     waitColor,
                 };
@@ -173,7 +198,14 @@ export const useStore = create<StoreState>((set, get) => ({
             const { serverIp } = get();
             const response = await fetch(`${serverIp}/api/admin/activities`);
             const data = await response.json();
-            set({ adminActivities: data });
+            
+            // Process image URLs for admin activities
+            const processedAdminActivities = data.map((activity: any) => ({
+                ...activity,
+                image: getImageUrl(activity.image, serverIp),
+            }));
+            
+            set({ adminActivities: processedAdminActivities });
         } catch (error) {
             console.error('Failed to fetch admin activities:', error);
         }
@@ -185,8 +217,15 @@ export const useStore = create<StoreState>((set, get) => ({
             const { serverIp } = get();
             const response = await fetch(`${serverIp}/api/activities/${id}`);
             const data = await response.json();
+            
+            // Process image URL for activity detail
+            const processedData = {
+                ...data,
+                image: getImageUrl(data.image, serverIp),
+            };
+            
             set((state) => ({
-                activityDetails: { ...state.activityDetails, [id]: data },
+                activityDetails: { ...state.activityDetails, [id]: processedData },
             }));
         } catch (error) {
             console.error('Failed to fetch activity detail:', error);
@@ -217,6 +256,31 @@ export const useStore = create<StoreState>((set, get) => ({
         }
     },
 
+    // Fetch staff member's assigned activity
+    fetchStaffActivity: async (staffId: string) => {
+        try {
+            const { serverIp } = get();
+            const response = await fetch(`${serverIp}/api/staff/${staffId}/activity`);
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Process image URL for staff activity
+                const processedData = {
+                    ...data,
+                    image: getImageUrl(data.image, serverIp),
+                };
+                
+                set({ staffActivity: processedData });
+            } else {
+                console.error('Staff activity not found');
+                set({ staffActivity: null });
+            }
+        } catch (error) {
+            console.error('Failed to fetch staff activity:', error);
+            set({ staffActivity: null });
+        }
+    },
+
     // Fetch feedback options
     fetchFeedbackOptions: async () => {
         try {
@@ -229,3 +293,6 @@ export const useStore = create<StoreState>((set, get) => ({
         }
     },
 }));
+
+// Export default for router compatibility
+export default useStore;

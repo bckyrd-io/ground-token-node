@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "ground-token",
-    "slug": "ground-token",
+    "name": "groun-token",
+    "slug": "Gerato Token",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "groundtoken",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -34,6 +34,13 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Camera access is required to scan QR codes for token validation",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
@@ -44,12 +51,11 @@
             "backgroundColor": "#000000"
           }
         }
-      ],
-      "expo-barcode-scanner"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
     }
   }
 }

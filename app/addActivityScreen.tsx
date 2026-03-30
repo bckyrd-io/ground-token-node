@@ -4,16 +4,22 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from './store';
 
 // Simple toast utility
-const showToast = (message: string, type: 'success' | 'error' = 'error') => {
-    Alert.alert(
-        type === 'success' ? 'Success' : 'Error',
-        message,
-        [{ text: 'OK', style: 'default' }]
-    );
+const showToast = (message: string, type: 'success' | 'error' = 'error', onDismiss?: () => void) => {
+    if (Platform.OS === 'web') {
+        window.alert(`${type === 'success' ? 'Success' : 'Error'}: ${message}`);
+        if (onDismiss) onDismiss();
+    } else {
+        Alert.alert(
+            type === 'success' ? 'Success' : 'Error',
+            message,
+            [{ text: 'OK', style: 'default', onPress: onDismiss }]
+        );
+    }
 };
 
 export default function AddActivityScreen() {
@@ -72,18 +78,41 @@ export default function AddActivityScreen() {
             
             // Add image if selected
             if (selectedImage) {
+                console.log('Uploading image:', selectedImage);
                 const uri = selectedImage;
-                const filename = uri.split('/').pop();
-                const match = /\.(\w+)$/.exec(filename || '');
-                const type = match ? `image/${match[1]}` : `image`;
+                let filename = uri.split('/').pop() || 'photo.jpg';
+                if (!/\.(jpg|jpeg|png|gif|webp)$/i.test(filename)) {
+                    filename = 'photo.jpg';
+                }
+                const match = /\.(\w+)$/.exec(filename);
+                const type = match ? `image/${match[1] === 'jpg' ? 'jpeg' : match[1]}` : `image/jpeg`;
                 
-                // React Native FormData format
-                formData.append('image', {
-                    uri,
-                    name: filename || 'photo.jpg',
-                    type,
-                } as any);
+                if (Platform.OS === 'web') {
+                    // Fetch blob for web and create a file
+                    const res = await fetch(uri);
+                    const blob = await res.blob();
+                    const file = new File([blob], filename, { type });
+                    formData.append('image', file);
+                } else {
+                    // React Native FormData format
+                    formData.append('image', {
+                        uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
+                        name: filename,
+                        type,
+                    } as any);
+                }
+            } else {
+                console.log('No image selected');
             }
+
+            console.log('Sending request to:', `${serverIp}/api/activities/upload`);
+            console.log('Form data entries:');
+            console.log('name:', activity.name);
+            console.log('description:', activity.description);
+            console.log('price:', activity.price);
+            console.log('capacity:', activity.capacity);
+            console.log('safetyRules:', activity.safetyRules);
+            console.log('hasImage:', !!selectedImage);
 
             const response = await fetch(`${serverIp}/api/activities/upload`, {
                 method: 'POST',
@@ -93,10 +122,12 @@ export default function AddActivityScreen() {
             });
 
             const data = await response.json();
+            console.log('Upload response:', data);
 
             if (response.ok) {
-                showToast('Activity added successfully', 'success');
-                router.back();
+                showToast('Activity added successfully', 'success', () => {
+                    router.back();
+                });
             } else {
                 showToast(data.error || 'Failed to add activity');
             }
@@ -155,7 +186,6 @@ export default function AddActivityScreen() {
                         placeholder="Enter activity description"
                         value={activity.description}
                         multiline
-                        numberOfLines={3}
                         onChangeText={(text) => setActivity({...activity, description: text})}
                         placeholderTextColor={COLORS.slate400}
                     />
@@ -245,7 +275,7 @@ export default function AddActivityScreen() {
                                                 contentFit="cover"
                                             />
                                             <View style={styles.staffInfo}>
-                                                <Text style={styles.staffName}>{member.username}</Text>
+                                                <Text style={styles.staffName}>{member.name || member.username}</Text>
                                                 <Text style={styles.staffZone}>{member.zone}</Text>
                                             </View>
                                             <View style={[
@@ -412,7 +442,7 @@ const styles = StyleSheet.create({
     },
     textArea: {
         height: 80,
-        textAlignVertical: 'top',
+        ...(Platform.OS === 'android' && { textAlignVertical: 'top' }),
     },
     row: {
         flexDirection: 'row',

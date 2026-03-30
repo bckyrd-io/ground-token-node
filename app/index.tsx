@@ -2,7 +2,8 @@ import { COLORS } from '@/constants/theme';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Dimensions, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 

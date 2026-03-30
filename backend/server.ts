@@ -23,6 +23,7 @@
 
 import cors from 'cors';
 import express from 'express';
+import fs from 'fs';
 import multer from 'multer';
 import mysql from 'mysql2/promise';
 import path from 'path';
@@ -38,11 +39,22 @@ const __dirname = path.dirname(__filename);
 // File upload configuration
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, 'uploads'));
+        const uploadPath = path.join(__dirname, 'uploads');
+        console.log('Upload destination path:', uploadPath);
+        
+        // Ensure uploads directory exists
+        if (!fs.existsSync(uploadPath)) {
+            console.log('Creating uploads directory...');
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        
+        cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+        const filename = file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname);
+        console.log('Generated filename:', filename);
+        cb(null, filename);
     }
 });
 
@@ -52,13 +64,16 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024 // 5MB limit
     },
     fileFilter: (req, file, cb) => {
+        console.log('Multer verifying:', file.originalname, file.mimetype);
         const allowedTypes = /jpeg|jpg|png|gif|webp/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
         const mimetype = allowedTypes.test(file.mimetype);
         
-        if (mimetype && extname) {
+        // Let's be a bit more permissive on web uploads where extensions might be missing
+        if (mimetype || extname) {
             return cb(null, true);
         } else {
+            console.warn(`File rejected. Mimetype: ${file.mimetype}, Ext: ${path.extname(file.originalname)}`);
             cb(new Error('Only image files are allowed'));
         }
     }
@@ -108,7 +123,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/api/test-upload', (req, res) => {
     try {
         const uploadPath = path.join(__dirname, 'uploads');
-        const fs = require('fs');
         
         console.log('Upload path:', uploadPath);
         console.log('Directory exists:', fs.existsSync(uploadPath));
@@ -151,6 +165,7 @@ app.get('/api/activities', async (req, res) => {
             currentOccupancy: activity.currentOccupancy,
             capacity: activity.capacity,
             image: activity.image,
+            isCapacityControlOpen: activity.isCapacityControlOpen,
             test: 'updated',
         }));
 
@@ -257,9 +272,12 @@ app.get('/api/staff', async (req, res) => {
     try {
         const [rows] = await db.execute(`
             SELECT u.id, u.username, u.email, u.phone, u.role,
-                   s.staffId, s.status, u.isActive
+                   s.staffId, s.status, u.isActive,
+                   a.name as zone
             FROM users u 
             JOIN staff s ON u.id = s.userId 
+            LEFT JOIN staffActivities sa ON s.id = sa.staffId AND sa.isActive = 1
+            LEFT JOIN activities a ON sa.activityId = a.id AND a.isActive = 1
             WHERE u.isActive = 1 AND s.isActive = 1
         `);
         const staff = rows as any[];
@@ -268,9 +286,9 @@ app.get('/api/staff', async (req, res) => {
         const formattedStaff = staff.map(member => ({
             id: member.id,
             name: member.username,
-            zone: 'Unassigned', // Will be populated from staffActivities later
-            status: member.status === 'active' ? 'Active' :
-                   member.status === 'off_duty' ? 'Off-Duty' : 'Inactive',
+            zone: member.zone || 'Unassigned',
+            status: !member.zone ? 'Unassigned' : (member.status === 'active' ? 'Active' :
+                   member.status === 'off_duty' ? 'Off-Duty' : 'Inactive'),
             image: member.image || 'https://picsum.photos/200',
         }));
 
@@ -278,6 +296,71 @@ app.get('/api/staff', async (req, res) => {
     } catch (error) {
         console.error('Error fetching staff:', error);
         res.status(500).json({ error: 'Failed to fetch staff' });
+    }
+});
+
+// Fetch staff member's assigned activity
+app.get('/api/staff/:staffId/activity', async (req, res) => {
+    try {
+        const { staffId } = req.params;
+        
+        const [rows] = await db.execute(`
+            SELECT a.*, sa.staffId as assignedStaffId
+            FROM activities a
+            JOIN staffActivities sa ON a.id = sa.activityId
+            JOIN staff s ON sa.staffId = s.id
+            WHERE s.userId = ? AND sa.isActive = 1 AND a.isActive = 1
+            LIMIT 1
+        `, [staffId]);
+        const activities = rows as any[];
+        
+        if (activities.length === 0) {
+            return res.status(404).json({ error: 'No activity assigned to this staff member' });
+        }
+        
+        const activity = activities[0];
+        res.json({
+            id: activity.id,
+            name: activity.name,
+            description: activity.description,
+            price: activity.price,
+            capacity: activity.capacity,
+            currentOccupancy: activity.currentOccupancy,
+            image: activity.image,
+            safetyRules: activity.safetyRules ? JSON.parse(activity.safetyRules) : [],
+        });
+    } catch (error) {
+        console.error('Error fetching staff activity:', error);
+        res.status(500).json({ error: 'Failed to fetch staff activity' });
+    }
+});
+
+// Update activity capacity control status
+app.put('/api/activities/:id/capacity-control', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isOpen } = req.body;
+        
+        if (typeof isOpen !== 'boolean') {
+            return res.status(400).json({ error: 'isOpen must be a boolean' });
+        }
+        
+        const [result] = await db.execute(
+            'UPDATE activities SET isCapacityControlOpen = ?, updatedAt = NOW() WHERE id = ?',
+            [isOpen, id]
+        );
+        
+        if ((result as any).affectedRows === 0) {
+            return res.status(404).json({ error: 'Activity not found' });
+        }
+        
+        res.json({ 
+            message: 'Capacity control status updated successfully',
+            isOpen: isOpen
+        });
+    } catch (error) {
+        console.error('Error updating capacity control:', error);
+        res.status(500).json({ error: 'Failed to update capacity control status' });
     }
 });
 
@@ -508,8 +591,7 @@ app.post('/api/activities/upload', (req, res, next) => {
             // If multer fails (e.g., boundary not found), log and continue
             console.warn('Multer error in upload route:', err.message);
             console.warn('Multer error details:', err);
-            // Don't set req.file to undefined here since this is the upload route
-            // Let the request continue but handle the error gracefully
+            return res.status(400).json({ error: err.message });
         } else {
             console.log('Multer processing successful');
         }
@@ -803,36 +885,49 @@ app.get('/api/admin/dashboard', async (req, res) => {
         `) as [any[], any];
         const staff = staffRows[0] as any;
 
-        // Get weekly visitor data (last 7 days)
+        // Last 7 calendar days in server local TZ (CURDATE), oldest → newest; fill gaps with 0
         const [weeklyRows] = await db.execute(`
-            SELECT DATE(createdAt) as date, COUNT(*) as visitors
-            FROM tokens 
-            WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            GROUP BY DATE(createdAt)
-            ORDER BY date ASC
+            SELECT
+                DATE_FORMAT(d.dt, '%Y-%m-%d') AS date,
+                COALESCE(t.cnt, 0) AS visitors
+            FROM (
+                SELECT DATE_SUB(CURDATE(), INTERVAL seq DAY) AS dt
+                FROM (
+                    SELECT 6 AS seq UNION SELECT 5 UNION SELECT 4 UNION SELECT 3
+                    UNION SELECT 2 UNION SELECT 1 UNION SELECT 0
+                ) AS offsets
+            ) d
+            LEFT JOIN (
+                SELECT DATE(createdAt) AS token_date, COUNT(*) AS cnt
+                FROM tokens
+                WHERE createdAt >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+                  AND createdAt < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+                GROUP BY DATE(createdAt)
+            ) t ON t.token_date = d.dt
+            ORDER BY d.dt ASC
         `) as [any[], any];
-        
-        // Fill missing days with 0 visitors
-        const weeklyData = [];
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
-            const dayData = weeklyRows.find((row: any) => row.date === dateStr);
-            weeklyData.push({
+
+        const weeklyData = (weeklyRows as any[]).map((row) => {
+            let dateStr = row.date;
+            if (dateStr instanceof Date) {
+                dateStr = dateStr.toISOString().split('T')[0];
+            } else if (dateStr && typeof dateStr !== 'string') {
+                dateStr = String(dateStr);
+            }
+            return {
                 date: dateStr,
-                visitors: dayData ? dayData.visitors : 0
-            });
-        }
+                visitors: Number(row.visitors) || 0,
+            };
+        });
 
         res.json({
-            totalRevenue: revenue.totalRevenue || 0,
-            totalTokens: revenue.totalTokens,
-            completedTokens: revenue.completedTokens,
-            totalCapacity: capacity.totalCapacity || 0,
-            totalOccupancy: capacity.totalOccupancy || 0,
-            activeStaff: staff.activeStaff || 0,
-            weeklyData: weeklyData
+            totalRevenue: Number(revenue.totalRevenue) || 0,
+            totalTokens: Number(revenue.totalTokens) || 0,
+            completedTokens: Number(revenue.completedTokens) || 0,
+            totalCapacity: Number(capacity.totalCapacity) || 0,
+            totalOccupancy: Number(capacity.totalOccupancy) || 0,
+            activeStaff: Number(staff.activeStaff) || 0,
+            weeklyData,
         });
     } catch (error) {
         console.error('Dashboard error:', error);

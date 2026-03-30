@@ -12,7 +12,7 @@ interface MenuModalProps {
 
 const MenuModal = ({ visible, onClose, onLogout }: MenuModalProps) => (
     <Modal
-        transparent={true}
+        transparent
         visible={visible}
         animationType="fade"
         onRequestClose={onClose}

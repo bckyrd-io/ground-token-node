@@ -17,6 +17,19 @@ interface DashboardData {
     weeklyData: Array<{ date: string; visitors: number }>;
 }
 
+function num(v: unknown, fallback = 0): number {
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : fallback;
+}
+
+/** YYYY-MM-DD → short weekday label in local timezone (matches chart bucket dates from API). */
+function weekdayShortLabel(isoDate: string): string {
+    const [y, m, d] = isoDate.split('-').map((x) => parseInt(x, 10));
+    if (!y || !m || !d) return '?';
+    const local = new Date(y, m - 1, d, 12, 0, 0);
+    return local.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3).toUpperCase();
+}
+
 interface Activity {
     name: string;
     capacity: number;
@@ -55,7 +68,20 @@ export default function AdminDashboardScreen() {
             
             if (response.ok) {
                 const data = await response.json();
-                setDashboardData(data);
+                setDashboardData({
+                    totalRevenue: num(data.totalRevenue),
+                    totalTokens: num(data.totalTokens),
+                    completedTokens: num(data.completedTokens),
+                    totalCapacity: num(data.totalCapacity),
+                    totalOccupancy: num(data.totalOccupancy),
+                    activeStaff: num(data.activeStaff),
+                    weeklyData: Array.isArray(data.weeklyData)
+                        ? data.weeklyData.map((w: { date: string; visitors: unknown }) => ({
+                              date: w.date,
+                              visitors: num(w.visitors),
+                          }))
+                        : [],
+                });
             } else {
                 Alert.alert('Error', 'Failed to fetch dashboard data');
             }
@@ -150,20 +176,15 @@ export default function AdminDashboardScreen() {
         );
     }
 
-    // Prepare chart data
-    const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    const today = new Date();
-    const maxVisitors = Math.max(...dashboardData.weeklyData.map(d => d.visitors), 1);
-    const chartData = DAYS.map((day, index) => {
-        const date = new Date(today);
-        date.setDate(today.getDate() - (6 - index));
-        const dateStr = date.toISOString().split('T')[0];
-        const dayData = dashboardData.weeklyData.find(d => d.date === dateStr);
-        const visitorCount = dayData?.visitors || 0;
+    // Chart uses API order (oldest → newest) and each bucket's date for labels (avoids UTC vs local mismatch)
+    const maxVisitors = Math.max(...dashboardData.weeklyData.map((d) => d.visitors), 1);
+    const chartData = dashboardData.weeklyData.map((entry) => {
+        const visitorCount = entry.visitors;
         return {
-            day,
+            date: entry.date,
+            day: weekdayShortLabel(entry.date),
             visitors: visitorCount,
-            height: maxVisitors > 0 ? Math.max(5, (visitorCount / maxVisitors) * 100) : 5 // Proper percentage scaling
+            height: maxVisitors > 0 ? Math.max(5, (visitorCount / maxVisitors) * 100) : 5,
         };
     });
 
@@ -224,7 +245,7 @@ export default function AdminDashboardScreen() {
                     {chartData.map((item, index) => {
                         const isPeak = item.visitors > 0 && item.visitors >= maxVisitors * 0.6; // Peak if 60% or more of max
                         return (
-                            <View key={item.day} style={styles.barColumn}>
+                            <View key={item.date} style={styles.barColumn}>
                                 <View style={styles.barWrapper}>
                                     <View style={[
                                         styles.bar,
