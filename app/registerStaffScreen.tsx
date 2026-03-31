@@ -2,17 +2,9 @@ import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// Simple toast utility
-const showToast = (message: string, type: 'success' | 'error' = 'error') => {
-    Alert.alert(
-        type === 'success' ? 'Success' : 'Error',
-        message,
-        [{ text: 'OK', style: 'default' }]
-    );
-};
+import { showToast } from './toast';
 
 export default function RegisterStaffScreen() {
     const router = useRouter();

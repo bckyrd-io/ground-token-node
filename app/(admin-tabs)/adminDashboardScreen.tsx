@@ -5,7 +5,8 @@ import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { showToast } from '../toast';
 
 interface DashboardData {
     totalRevenue: number;
@@ -83,11 +84,11 @@ export default function AdminDashboardScreen() {
                         : [],
                 });
             } else {
-                Alert.alert('Error', 'Failed to fetch dashboard data');
+                showToast('Failed to fetch dashboard data');
             }
         } catch (error) {
             console.error('Dashboard fetch error:', error);
-            Alert.alert('Error', 'Network error. Please try again.');
+            showToast('Network error. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -144,16 +145,16 @@ export default function AdminDashboardScreen() {
                         dialogTitle: 'Share Ground Token Report',
                     });
                 } else {
-                    Alert.alert('Success', `Report saved to ${file.uri}`);
+                    showToast(`Report saved to ${file.uri}`, 'success');
                 }
                 
-                Alert.alert('Success', 'Report generated and ready to share');
+                showToast('Report generated and ready to share', 'success');
             } else {
-                Alert.alert('Error', 'Failed to export report');
+                showToast('Failed to export report');
             }
         } catch (error) {
             console.error('Export error:', error);
-            Alert.alert('Error', 'Failed to generate report. Please try again.');
+            showToast('Failed to generate report. Please try again.');
         }
     };
 

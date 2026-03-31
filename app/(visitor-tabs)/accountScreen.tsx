@@ -2,78 +2,27 @@ import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { Profile } from '../store';
 import { useStore } from '../store';
+import { showToast } from '../toast';
 
-// Simple toast utility
-const showToast = (message: string, type: 'success' | 'error' = 'error') => {
-    Alert.alert(
-        type === 'success' ? 'Success' : 'Error',
-        message,
-        [{ text: 'OK', style: 'default' }]
-    );
-};
-
-// Global logout utility
-const handleGlobalLogout = (router: any) => {
-    Alert.alert(
-        'Logout',
-        'Are you sure you want to logout?',
-        [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-                text: 'Logout', 
-                style: 'destructive',
-                onPress: () => {
-                    try {
-                        // Clear any stored auth data and navigate to login
-                        router.dismiss(); // Dismiss any modals
-                        router.replace('/loginScreen');
-                    } catch (error) {
-                        console.error('Logout error:', error);
-                        // Fallback navigation
-                        router.replace('/loginScreen');
-                    }
-                }
-            }
-        ]
-    );
-};
 
 export default function AccountScreen() {
     const router = useRouter();
-    const { profile, fetchProfile } = useStore();
+    const { profile, setProfile } = useStore();
     const [isLoading, setIsLoading] = useState(false);
     
-    // Use actual user data from store
-    const [userData, setUserData] = useState({
-        id: 'user-001',
-        username: 'visitor1',
-        email: 'visitor1@gelatokids.com',
-        phone: '+2651234572',
-        role: 'visitor',
-        createdAt: '2024-01-15'
-    });
-
-    // Fetch user profile on mount
-    useEffect(() => {
-        fetchProfile();
-    }, [fetchProfile]);
-
-    // Update userData when profile changes
-    useEffect(() => {
-        if (profile) {
-            setUserData({
-                id: profile.id || 'user-001', // Use actual user ID from profile
-                username: profile.username,
-                email: profile.email,
-                phone: profile.phone,
-                role: profile.role,
-                createdAt: profile.createdAt
-            });
-        }
-    }, [profile]);
+    // Use profile from store directly (set during login)
+    const userData = {
+        id: profile?.id || '',
+        username: profile?.username || '',
+        email: profile?.email || '',
+        phone: profile?.phone || '',
+        role: profile?.role || 'visitor',
+        createdAt: profile?.createdAt || new Date().toISOString()
+    };
 
     const [formData, setFormData] = useState({
         username: userData.username,
@@ -82,7 +31,7 @@ export default function AccountScreen() {
         password: '',
     });
 
-    // Sync formData with userData
+    // Sync formData when userData changes
     useEffect(() => {
         setFormData({
             username: userData.username,
@@ -90,7 +39,7 @@ export default function AccountScreen() {
             phone: userData.phone,
             password: '',
         });
-    }, [userData]);
+    }, [userData.username, userData.email, userData.phone]);
 
     const handleUpdate = async () => {
         if (!formData.username || !formData.email) {
@@ -99,7 +48,7 @@ export default function AccountScreen() {
         }
 
         // Check if user has a valid ID
-        if (!userData.id || userData.id === 'user-001' && !profile?.id) {
+        if (!userData.id) {
             showToast('Unable to update account. Please try logging out and back in.');
             return;
         }
@@ -133,7 +82,13 @@ export default function AccountScreen() {
 
             if (response.ok) {
                 showToast('Account updated successfully!', 'success');
-                setUserData(prev => ({ ...prev, ...formData }));
+                // Update Zustand store with new profile data
+                setProfile({
+                    ...profile,
+                    username: formData.username,
+                    email: formData.email,
+                    phone: formData.phone
+                } as Profile);
                 // Clear password field after successful update
                 setFormData(prev => ({ ...prev, password: '' }));
             } else {
@@ -147,26 +102,7 @@ export default function AccountScreen() {
         }
     };
 
-    const handleLogout = () => {
-        Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { 
-                    text: 'Logout', 
-                    style: 'destructive',
-                    onPress: () => {
-                        // Clear stored user data and navigate to login
-                        router.dismiss();
-                        setTimeout(() => {
-                            router.replace('/loginScreen' as any);
-                        }, 100);
-                    }
-                }
-            ]
-        );
-    };
+    
 
     return (
         <SafeAreaView style={styles.safeArea}>

@@ -3,9 +3,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from './store';
+import { showToast } from './toast';
 
 export default function RatingFeedbackScreen() {
     const router = useRouter();
@@ -21,7 +22,7 @@ export default function RatingFeedbackScreen() {
 
     const handleSubmit = async () => {
         if (rating === 0) {
-            Alert.alert('Error', 'Please select a rating');
+            showToast('Please select a rating');
             return;
         }
 
@@ -51,15 +52,14 @@ export default function RatingFeedbackScreen() {
             const data = await response.json();
 
             if (response.ok) {
-                Alert.alert('Success', 'Thank you for your feedback!', [
-                    { text: 'OK', onPress: () => router.back() }
-                ]);
+                showToast('Thank you for your feedback!', 'success');
+                setTimeout(() => router.back(), 1500);
             } else {
-                Alert.alert('Error', data.error || 'Failed to submit feedback');
+                showToast(data.error || 'Failed to submit feedback');
             }
         } catch (error) {
             console.error('Feedback submission error:', error);
-            Alert.alert('Error', 'Network error. Please try again.');
+            showToast('Network error. Please try again.');
         } finally {
             setIsLoading(false);
         }

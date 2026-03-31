@@ -4,23 +4,10 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from './store';
-
-// Simple toast utility
-const showToast = (message: string, type: 'success' | 'error' = 'error', onDismiss?: () => void) => {
-    if (Platform.OS === 'web') {
-        window.alert(`${type === 'success' ? 'Success' : 'Error'}: ${message}`);
-        if (onDismiss) onDismiss();
-    } else {
-        Alert.alert(
-            type === 'success' ? 'Success' : 'Error',
-            message,
-            [{ text: 'OK', style: 'default', onPress: onDismiss }]
-        );
-    }
-};
+import { showToast } from './toast';
 
 export default function AddActivityScreen() {
     const router = useRouter();

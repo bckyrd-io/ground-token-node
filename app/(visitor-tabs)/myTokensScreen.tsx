@@ -5,11 +5,13 @@ import QRCode from 'react-native-qrcode-svg';
 import { useStore } from '../store';
 
 export default function MyTokensScreen() {
-    const { tokens, fetchTokens } = useStore();
+    const { tokens, fetchTokens, profile } = useStore();
 
     useEffect(() => {
-        fetchTokens();
-    }, [fetchTokens]);
+        if (profile?.id) {
+            fetchTokens(profile.id);
+        }
+    }, [fetchTokens, profile?.id]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>

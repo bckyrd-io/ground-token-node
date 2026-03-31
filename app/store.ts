@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 // Define types
-type Profile = {
+export type Profile = {
     id: string | null;
     username: string;
     avatar: string;
@@ -93,11 +93,12 @@ type StoreState = {
     fetchActivities: () => Promise<void>;
     fetchAdminActivities: () => Promise<void>;
     fetchActivityDetail: (id: string) => Promise<void>;
-    fetchTokens: () => Promise<void>;
+    fetchTokens: (userId: string) => Promise<void>;
     fetchStaff: () => Promise<void>;
     fetchStaffActivity: (staffId: string) => Promise<void>;
     fetchFeedbackOptions: () => Promise<void>;
     setProfile: (profile: Profile) => void;
+    logout: () => void;
 };
 
 // Helper function to prepend server URL to image paths
@@ -128,6 +129,11 @@ export const useStore = create<StoreState>((set, get) => ({
     staffActivity: null,
     feedbackOptions: null,
     setProfile: (profile) => set({ profile }),
+    logout: () => set({
+        profile: null,
+        tokens: [],
+        staffActivity: null,
+    }),
 
     // Fetch profile data
     fetchProfile: async () => {
@@ -232,11 +238,11 @@ export const useStore = create<StoreState>((set, get) => ({
         }
     },
 
-    // Fetch tokens
-    fetchTokens: async () => {
+    // Fetch tokens for a specific user
+    fetchTokens: async (userId: string) => {
         try {
             const { serverIp } = get();
-            const response = await fetch(`${serverIp}/api/tokens`);
+            const response = await fetch(`${serverIp}/api/tokens?userId=${userId}`);
             const data = await response.json();
             set({ tokens: data });
         } catch (error) {

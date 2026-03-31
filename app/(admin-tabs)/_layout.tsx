@@ -1,13 +1,45 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useStore } from '../store';
 
 interface MenuModalProps {
     visible: boolean;
     onClose: () => void;
     onLogout: () => void;
 }
+
+// Confirm logout modal component
+interface ConfirmLogoutModalProps {
+    visible: boolean;
+    onCancel: () => void;
+    onConfirm: () => void;
+}
+
+const ConfirmLogoutModal: React.FC<ConfirmLogoutModalProps> = ({ visible, onCancel, onConfirm }) => (
+    <Modal
+        transparent
+        visible={visible}
+        animationType="fade"
+        onRequestClose={onCancel}
+    >
+        <View style={styles.modalOverlay}>
+            <View style={styles.confirmContainer}>
+                <Text style={styles.confirmTitle}>Logout</Text>
+                <Text style={styles.confirmMessage}>Are you sure you want to logout?</Text>
+                <View style={styles.confirmButtons}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.logoutButton} onPress={onConfirm}>
+                        <Text style={styles.logoutButtonText}>Logout</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+    </Modal>
+);
 
 // Simple menu component
 const MenuModal = ({ visible, onClose, onLogout }: MenuModalProps) => (
@@ -31,33 +63,22 @@ const MenuModal = ({ visible, onClose, onLogout }: MenuModalProps) => (
 export default function AdminTabsLayout() {
     const router = useRouter();
     const [showMenu, setShowMenu] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const logout = useStore((state) => state.logout);
 
-    const handleLogout = () => {
+    const handleLogoutPress = () => {
         setShowMenu(false);
-        Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { 
-                    text: 'Logout', 
-                    style: 'destructive',
-                    onPress: () => {
-                        // Clear any stored auth data and navigate to index screen
-                        try {
-                            // Clear any secure storage or AsyncStorage if used
-                            // For now, just navigate to index screen
-                            router.dismiss(); // Dismiss any modals
-                            router.replace('/'); // Navigate to index screen
-                        } catch (error) {
-                            console.error('Logout error:', error);
-                            // Fallback navigation
-                            router.replace('/'); // Navigate to index screen
-                        }
-                    }
-                }
-            ]
-        );
+        setShowConfirmModal(true);
+    };
+
+    const handleConfirmLogout = () => {
+        setShowConfirmModal(false);
+        logout();
+        router.replace('/');
+    };
+
+    const handleCancelLogout = () => {
+        setShowConfirmModal(false);
     };
 
     return (
@@ -127,7 +148,12 @@ export default function AdminTabsLayout() {
             <MenuModal 
                 visible={showMenu} 
                 onClose={() => setShowMenu(false)} 
-                onLogout={handleLogout}
+                onLogout={handleLogoutPress}
+            />
+            <ConfirmLogoutModal
+                visible={showConfirmModal}
+                onCancel={handleCancelLogout}
+                onConfirm={handleConfirmLogout}
             />
         </>
     );
@@ -137,30 +163,84 @@ const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-start',
-        alignItems: 'flex-end',
-        paddingTop: 60,
-        paddingRight: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     menuContainer: {
         backgroundColor: 'white',
-        borderRadius: 8,
+        borderRadius: 12,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
-        minWidth: 150,
+        minWidth: 180,
+        overflow: 'hidden',
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
+        padding: 16,
         gap: 12,
     },
     menuItemText: {
         fontSize: 16,
         color: '#dc2626',
         fontWeight: '500',
+    },
+    confirmContainer: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 24,
+        width: 300,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    confirmTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#1f2937',
+        marginBottom: 12,
+    },
+    confirmMessage: {
+        fontSize: 16,
+        color: '#6b7280',
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    confirmButtons: {
+        flexDirection: 'row',
+        gap: 12,
+        width: '100%',
+    },
+    cancelButton: {
+        flex: 1,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        backgroundColor: '#f3f4f6',
+        alignItems: 'center',
+    },
+    cancelButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#4b5563',
+    },
+    logoutButton: {
+        flex: 1,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        backgroundColor: '#dc2626',
+        alignItems: 'center',
+    },
+    logoutButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: 'white',
     },
 });

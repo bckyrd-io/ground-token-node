@@ -2,24 +2,16 @@ import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from './store';
-
-// Simple toast utility
-const showToast = (message: string, type: 'success' | 'error' = 'error') => {
-    Alert.alert(
-        type === 'success' ? 'Success' : 'Error',
-        message,
-        [{ text: 'OK', style: 'default' }]
-    );
-};
+import { showToast } from './toast';
 
 export default function ConfirmPaymentScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const activityId = id || '1'; // Fallback to '1' if not provided
-    const { activityDetails, fetchActivityDetail } = useStore();
+    const { activityDetails, fetchActivityDetail, profile, setProfile } = useStore();
     const activity = activityDetails[activityId];
     const [selectedProvider, setSelectedProvider] = useState('airtel');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -62,7 +54,8 @@ export default function ConfirmPaymentScreen() {
                     phoneNumber,
                     amount: activity.price,
                     provider: selectedProvider,
-                    activityId: id
+                    activityId: id,
+                    userId: profile?.id
                 }),
             });
 
@@ -70,6 +63,20 @@ export default function ConfirmPaymentScreen() {
 
             if (response.ok && data.success) {
                 showToast('Payment successful! Token generated.', 'success');
+                
+                // If guest checkout created a user, update the store
+                if (data.user && !profile?.id) {
+                    setProfile({
+                        id: data.user.id,
+                        username: data.user.username,
+                        email: data.user.email,
+                        phone: data.user.phone,
+                        role: data.user.role,
+                        avatar: 'https://picsum.photos/200',
+                        createdAt: new Date().toISOString()
+                    });
+                }
+                
                 // Navigate to tokens screen
                 setTimeout(() => {
                     try {

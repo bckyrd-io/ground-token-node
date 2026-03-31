@@ -234,16 +234,28 @@ app.get('/api/admin/activities', async (req, res) => {
     }
 });
 
-// Fetch all tokens for user/staff
+// Fetch tokens for a specific user
 app.get('/api/tokens', async (req, res) => {
     try {
-        const [rows] = await db.execute(`
+        const { userId } = req.query;
+        
+        let query = `
             SELECT t.*, a.name as activityName, u.username 
             FROM tokens t 
             JOIN activities a ON t.activityId = a.id 
             JOIN users u ON t.userId = u.id 
-            ORDER BY t.createdAt ASC
-        `);
+        `;
+        let params: any[] = [];
+        
+        // Filter by userId if provided
+        if (userId) {
+            query += ' WHERE t.userId = ?';
+            params.push(userId);
+        }
+        
+        query += ' ORDER BY t.createdAt ASC';
+        
+        const [rows] = await db.execute(query, params);
         const tokens = rows as any[];
 
         // Transform to frontend format with computed fields
@@ -364,13 +376,25 @@ app.put('/api/activities/:id/capacity-control', async (req, res) => {
     }
 });
 
-// Fetch user profile
+// Fetch user profile by userId
 app.get('/api/profile', async (req, res) => {
     try {
-        // For now, return default profile. In production, use auth token to identify user
-        const [rows] = await db.execute(
-            'SELECT * FROM users WHERE role = ? AND isActive = 1 LIMIT 1', ['visitor']
-        );
+        const { userId } = req.query;
+        
+        let query = 'SELECT * FROM users WHERE isActive = 1';
+        let params: any[] = [];
+        
+        // If userId provided, fetch that specific user
+        if (userId) {
+            query += ' AND id = ?';
+            params.push(userId);
+        } else {
+            // Fallback: return first visitor (for backward compatibility)
+            query += ' AND role = ? LIMIT 1';
+            params.push('visitor');
+        }
+        
+        const [rows] = await db.execute(query, params);
         const users = rows as any[];
         
         if (users.length > 0) {
@@ -418,8 +442,10 @@ app.get('/api/feedback/options', (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
+        console.log(`[Auth] Login attempt: Username=${username}`);
         
         if (!username || !password) {
+            console.log('[Auth] Login failed: Missing credentials');
             return res.status(400).json({ error: 'Username and password required' });
         }
 
@@ -433,6 +459,7 @@ app.post('/api/auth/login', async (req, res) => {
         const users = userRows as any[];
 
         if (users.length === 0) {
+            console.log(`[Auth] Login failed: User not found: ${username}`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
@@ -440,13 +467,17 @@ app.post('/api/auth/login', async (req, res) => {
         
         // For now, accept any password (implement proper hashing in production)
         if (password !== user.password) {
+            console.log(`[Auth] Login failed: Invalid password for user: ${username}`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         // Additional check for staff users - they must be active in staff table
         if (user.role === 'staff' && (!user.staffId || user.staffStatus !== 'active')) {
+            console.log(`[Auth] Login failed: Staff account not active: ${username}`);
             return res.status(401).json({ error: 'Staff account not active' });
         }
+
+        console.log(`[Auth] Login successful: ${username}, Role=${user.role}, UserID=${user.id}`);
 
         // Return user info without JWT for MVP
         res.json({
@@ -460,7 +491,7 @@ app.post('/api/auth/login', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Login error:', error);
+        console.error('[Auth] Login error:', error);
         res.status(500).json({ error: 'Login failed' });
     }
 });
@@ -689,8 +720,10 @@ app.put('/api/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { username, email, phone, password } = req.body;
+        console.log(`[User] Updating profile: UserID=${id}, Username=${username}, Email=${email}, HasPassword=${!!password}`);
 
         if (!username || !email) {
+            console.log('[User] Update failed: Missing username or email');
             return res.status(400).json({ error: 'Username and email required' });
         }
 
@@ -708,6 +741,7 @@ app.put('/api/users/:id', async (req, res) => {
                     username = ?, email = ?, phone = ?, password = ?, updatedAt = NOW()
             `;
             updateParams = [username, email, phone, password, id];
+            console.log(`[User] Password will be updated for UserID=${id}`);
         }
 
         updateQuery += ' WHERE id = ? AND isActive = 1';
@@ -715,15 +749,18 @@ app.put('/api/users/:id', async (req, res) => {
         const [result] = await db.execute(updateQuery, updateParams);
 
         if ((result as any).affectedRows === 0) {
+            console.log(`[User] Update failed: User not found: ${id}`);
             return res.status(404).json({ error: 'User not found' });
         }
+
+        console.log(`[User] Profile updated successfully: UserID=${id}`);
 
         res.json({ 
             message: 'User updated successfully',
             user: { id, username, email, phone }
         });
     } catch (error) {
-        console.error('Update user error:', error);
+        console.error('[User] Update error:', error);
         res.status(500).json({ error: 'Failed to update user' });
     }
 });
@@ -735,9 +772,11 @@ app.put('/api/users/:id', async (req, res) => {
 // Simulate payment processing
 app.post('/api/payment/process', async (req, res) => {
     try {
-        const { phoneNumber, amount, provider, activityId } = req.body;
+        const { phoneNumber, amount, provider, activityId, userId } = req.body;
+        console.log(`[Payment] Processing payment: Phone=${phoneNumber}, Amount=${amount}, Provider=${provider}, ActivityID=${activityId}, UserID=${userId || 'guest'}`);
 
         if (!phoneNumber || !amount || !provider) {
+            console.log('[Payment] Failed: Missing payment details');
             return res.status(400).json({ error: 'Missing payment details' });
         }
 
@@ -753,21 +792,38 @@ app.post('/api/payment/process', async (req, res) => {
         // In production, this would integrate with real PayChangu API
         const isSuccess = true; // Always success for demo
 
-        // Store payment record first
-        // For demo, create/get a demo user if needed
-        const [userCheck] = await db.execute('SELECT id FROM users WHERE role = ? LIMIT 1', ['visitor']) as any[];
-        let userId;
+        // Determine the user ID - use provided userId or create new guest user
+        let finalUserId = userId;
+        let guestUser = null;
         
-        if (userCheck.length === 0) {
-            // Create demo user if none exists
+        // Only create guest user if no userId provided (no one logged in)
+        if (!finalUserId) {
+            // Guest checkout - create new anonymous user with generated code
+            const guestCode = 'GUEST-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+            console.log(`[Payment] Creating new guest user: ${guestCode}`);
+            
+            // Create new guest user
             const [newUser] = await db.execute(`
-                INSERT INTO users (email, username, password, role) 
-                VALUES (?, ?, ?, ?)
-            `, ['visitor@gelatokids.com', 'visitor1', 'demo123', 'visitor']);
-            userId = (newUser as any).insertId;
+                INSERT INTO users (email, username, password, role, phone) 
+                VALUES (?, ?, ?, ?, ?)
+            `, [
+                `${guestCode}@guest.gelatokids.com`,
+                guestCode,
+                '', // Empty password until they set it via profile update
+                'visitor',
+                phoneNumber // Still store phone for payment record, but not as username
+            ]);
+            finalUserId = (newUser as any).insertId;
+            guestUser = {
+                id: finalUserId,
+                username: guestCode,
+                email: `${guestCode}@guest.gelatokids.com`,
+                phone: phoneNumber,
+                role: 'visitor'
+            };
+            console.log(`[Payment] Guest user created: ID=${finalUserId}, Username=${guestCode}`);
         } else {
-            // Use existing user ID
-            userId = (userCheck[0] as any).id;
+            console.log(`[Payment] Using existing user ID: ${finalUserId}`);
         }
 
         // Validate activityId exists
@@ -785,21 +841,24 @@ app.post('/api/payment/process', async (req, res) => {
                 processedAt, gatewayResponse
             ) VALUES (?, ?, ?, ?, 'MWK', ?, ?, 'completed', ?, NOW(), ?)
         `, [
-            transactionId, userId, activityId || null, amount, provider, phoneNumber, 
+            transactionId, finalUserId, activityId || null, amount, provider, phoneNumber, 
             gatewayTransactionId, JSON.stringify({ status: 'success', message: 'Payment processed successfully' })
         ]);
 
         if (isSuccess) {
             // Generate a token after successful payment
             const tokenCode = 'GT-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+            console.log(`[Payment] Payment successful. Token generated: ${tokenCode} for UserID: ${finalUserId}`);
             
             // Store token in database
             const [tokenResult] = await db.execute(`
                 INSERT INTO tokens (code, activityId, userId, status, createdAt) 
                 VALUES (?, ?, ?, 'pending', NOW())
-            `, [tokenCode, activityId, userId]);
+            `, [tokenCode, activityId, finalUserId]);
+            console.log(`[Payment] Token stored in DB: ID=${(tokenResult as any).insertId}`);
 
-            res.json({
+            // Build response
+            const response: any = {
                 success: true,
                 message: 'Payment processed successfully via PayChangu',
                 transactionId: transactionId,
@@ -810,9 +869,19 @@ app.post('/api/payment/process', async (req, res) => {
                     code: tokenCode,
                     status: 'pending'
                 }
-            });
+            };
+
+            // Include user data if guest checkout (new or existing user by phone)
+            if (guestUser) {
+                response.user = guestUser;
+                console.log(`[Payment] Returning guest user data: ${guestUser.username}`);
+            }
+
+            console.log(`[Payment] Response sent: success=true, PaymentID=${response.paymentId}`);
+            res.json(response);
         } else {
             // Update payment status to failed
+            console.log(`[Payment] Payment failed for transaction: ${transactionId}`);
             await db.execute(`
                 UPDATE payments SET status = 'failed', failedReason = ?, processedAt = NOW()
                 WHERE transactionId = ?
@@ -826,7 +895,7 @@ app.post('/api/payment/process', async (req, res) => {
             });
         }
     } catch (error) {
-        console.error('Payment processing error:', error);
+        console.error('[Payment] Error processing payment:', error);
         res.status(500).json({ error: 'PayChangu payment processing failed' });
     }
 });
