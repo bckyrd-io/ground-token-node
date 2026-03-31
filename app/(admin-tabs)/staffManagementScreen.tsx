@@ -1,6 +1,5 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -53,11 +52,9 @@ export default function StaffManagementScreen() {
 
                     return (
                         <View key={member.id} style={[styles.staffCard, isOffDuty && { opacity: 0.75 }]}>
-                            <Image
-                                source={{ uri: member.image }}
-                                style={[styles.avatar, isOffDuty && { opacity: 0.5 }]}
-                                contentFit="cover"
-                            />
+                            <View style={[styles.avatar, isOffDuty && { opacity: 0.5 }]}>
+                                <MaterialIcons name="person" size={32} color={COLORS.slate400} />
+                            </View>
                             <View style={styles.staffInfo}>
                                 <Text style={styles.staffName}>{member.name}</Text>
                                 <Text style={styles.staffZone}>{member.zone}</Text>
@@ -99,7 +96,7 @@ const styles = StyleSheet.create({
         shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05,
         shadowRadius: 4, elevation: 2,
     },
-    avatar: { width: 56, height: 56, borderRadius: 28 },
+    avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.slate100, alignItems: 'center', justifyContent: 'center' },
     staffInfo: { flex: 1 },
     staffName: { fontSize: 16, fontWeight: '700', color: COLORS.slate900 },
     staffZone: { fontSize: 14, color: COLORS.slate500, marginTop: 2 },

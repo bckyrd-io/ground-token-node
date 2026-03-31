@@ -62,6 +62,7 @@ export default function AddActivityScreen() {
             formData.append('price', activity.price);
             formData.append('capacity', activity.capacity);
             formData.append('safetyRules', JSON.stringify(activity.safetyRules));
+            formData.append('staff', JSON.stringify(selectedStaff));
             
             // Add image if selected
             if (selectedImage) {
@@ -256,11 +257,9 @@ export default function AddActivityScreen() {
                                                 }
                                             }}
                                         >
-                                            <Image
-                                                source={{ uri: member.image }}
-                                                style={styles.staffAvatar}
-                                                contentFit="cover"
-                                            />
+                                            <View style={styles.staffAvatar}>
+                                                <MaterialIcons name="person" size={24} color={COLORS.slate400} />
+                                            </View>
                                             <View style={styles.staffInfo}>
                                                 <Text style={styles.staffName}>{member.name || member.username}</Text>
                                                 <Text style={styles.staffZone}>{member.zone}</Text>
@@ -538,6 +537,9 @@ const styles = StyleSheet.create({
         height: 40,
         borderRadius: 20,
         marginRight: 12,
+        backgroundColor: COLORS.slate100,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     staffInfo: {
         flex: 1,

@@ -1,12 +1,18 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
-import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { showToast } from '../toast';
+
+// Platform-specific imports
+let FileSystem: any = null;
+let Sharing: any = null;
+
+if (Platform.OS !== 'web') {
+    FileSystem = require('expo-file-system');
+    Sharing = require('expo-sharing');
+}
 
 interface DashboardData {
     totalRevenue: number;
@@ -16,41 +22,6 @@ interface DashboardData {
     totalOccupancy: number;
     activeStaff: number;
     weeklyData: Array<{ date: string; visitors: number }>;
-}
-
-function num(v: unknown, fallback = 0): number {
-    const n = typeof v === 'number' ? v : Number(v);
-    return Number.isFinite(n) ? n : fallback;
-}
-
-/** YYYY-MM-DD → short weekday label in local timezone (matches chart bucket dates from API). */
-function weekdayShortLabel(isoDate: string): string {
-    const [y, m, d] = isoDate.split('-').map((x) => parseInt(x, 10));
-    if (!y || !m || !d) return '?';
-    const local = new Date(y, m - 1, d, 12, 0, 0);
-    return local.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3).toUpperCase();
-}
-
-interface Activity {
-    name: string;
-    capacity: number;
-    currentOccupancy: number;
-}
-
-interface Token {
-    code: string;
-    status: string;
-    createdAt: string;
-    usedAt?: string;
-    activityName: string;
-    price: number;
-    userName?: string;
-}
-
-interface StaffMember {
-    username: string;
-    role: string;
-    status: string;
 }
 
 export default function AdminDashboardScreen() {
@@ -70,16 +41,16 @@ export default function AdminDashboardScreen() {
             if (response.ok) {
                 const data = await response.json();
                 setDashboardData({
-                    totalRevenue: num(data.totalRevenue),
-                    totalTokens: num(data.totalTokens),
-                    completedTokens: num(data.completedTokens),
-                    totalCapacity: num(data.totalCapacity),
-                    totalOccupancy: num(data.totalOccupancy),
-                    activeStaff: num(data.activeStaff),
+                    totalRevenue: Number(data.totalRevenue),
+                    totalTokens: Number(data.totalTokens),
+                    completedTokens: Number(data.completedTokens),
+                    totalCapacity: Number(data.totalCapacity),
+                    totalOccupancy: Number(data.totalOccupancy),
+                    activeStaff: Number(data.activeStaff),
                     weeklyData: Array.isArray(data.weeklyData)
                         ? data.weeklyData.map((w: { date: string; visitors: unknown }) => ({
                               date: w.date,
-                              visitors: num(w.visitors),
+                              visitors: Number(w.visitors),
                           }))
                         : [],
                 });
@@ -95,67 +66,7 @@ export default function AdminDashboardScreen() {
     };
 
     const handleExportReport = async () => {
-        try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
-            const response = await fetch(`${serverIp}/api/admin/export-report`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                
-                // Create text report
-                let reportContent = 'Ground Token Management Report\n';
-                reportContent += `Generated on: ${data.summary.generatedDate}\n\n`;
-                
-                // Add summary
-                reportContent += 'SUMMARY\n';
-                reportContent += `Total Tokens: ${data.summary.totalTokens}\n`;
-                reportContent += `Completed Tokens: ${data.summary.completedTokens}\n`;
-                reportContent += `Total Activities: ${data.summary.totalActivities}\n`;
-                reportContent += `Total Staff: ${data.summary.totalStaff}\n\n`;
-                
-                // Add activities
-                reportContent += 'ACTIVITIES\n';
-                data.activities.slice(0, 3).forEach((activity: Activity) => {
-                    reportContent += `${activity.name} - Cap: ${activity.capacity}, Occ: ${activity.currentOccupancy}\n`;
-                });
-                reportContent += '\n';
-                
-                // Add recent tokens
-                reportContent += 'RECENT TOKENS\n';
-                data.tokens.slice(0, 5).forEach((token: Token) => {
-                    reportContent += `${token.code} - ${token.activityName} - ${token.status}\n`;
-                });
-                reportContent += '\n';
-                
-                // Add staff
-                reportContent += 'STAFF\n';
-                data.staff.slice(0, 3).forEach((staffMember: StaffMember) => {
-                    reportContent += `${staffMember.username} - ${staffMember.role} - ${staffMember.status}\n`;
-                });
-                
-                // Write report to file
-                const fileName = `geralo-token-report-${new Date().toISOString().split('T')[0]}.txt`;
-                const file = new File(FileSystem.Paths.document, fileName);
-                
-                await file.write(reportContent);
-
-                // Share the report
-                if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(file.uri, {
-                        dialogTitle: 'Share Ground Token Report',
-                    });
-                } else {
-                    showToast(`Report saved to ${file.uri}`, 'success');
-                }
-                
-                showToast('Report generated and ready to share', 'success');
-            } else {
-                showToast('Failed to export report');
-            }
-        } catch (error) {
-            console.error('Export error:', error);
-            showToast('Failed to generate report. Please try again.');
-        }
+        showToast('PDF export temporarily unavailable');
     };
 
     if (isLoading) {
@@ -177,7 +88,10 @@ export default function AdminDashboardScreen() {
         );
     }
 
-    // Chart uses API order (oldest → newest) and each bucket's date for labels (avoids UTC vs local mismatch)
+const weekdayShortLabel = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+};
     const maxVisitors = Math.max(...dashboardData.weeklyData.map((d) => d.visitors), 1);
     const chartData = dashboardData.weeklyData.map((entry) => {
         const visitorCount = entry.visitors;
