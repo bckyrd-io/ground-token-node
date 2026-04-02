@@ -235,14 +235,66 @@ app.get('/api/admin/activities', async (req, res) => {
 });
 
 // Fetch tokens for a specific user
+async function processAutoQueue() {
+    try {
+        const [actRows] = await db.execute('SELECT id, capacity FROM activities WHERE isActive = 1');
+        const activities = actRows as any[];
+        
+        for (const act of activities) {
+            // Expire old tokens (assume 120 mins limit)
+            await db.execute(
+                `UPDATE tokens SET status = 'completed' WHERE activityId = ? AND status = 'in_use' AND DATE_ADD(usedAt, INTERVAL 120 MINUTE) < NOW()`,
+                [act.id]
+            );
+            
+            // Count current occupancy
+            const [activeCountRows] = await db.execute(
+                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND status = 'in_use'`,
+                [act.id]
+            );
+            const activeCount = Number((activeCountRows as any[])[0].cnt);
+            const availableSpots = act.capacity - activeCount;
+            
+            if (availableSpots > 0) {
+                // Pull from queue
+                const [queueRows] = await db.execute(
+                    `SELECT id FROM tokens WHERE activityId = ? AND status = 'queue' ORDER BY createdAt ASC LIMIT ?`,
+                    [act.id, availableSpots]
+                );
+                const qTokens = queueRows as any[];
+                if (qTokens.length > 0) {
+                    const ids = qTokens.map((r: any) => r.id);
+                    await db.execute(
+                        `UPDATE tokens SET status = 'in_use', usedAt = NOW() WHERE id IN (${ids.join(',')})`
+                    );
+                }
+            }
+            
+            // Update activities table to reflect accurate occupancy
+            const [newActiveRows] = await db.execute(
+                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND status = 'in_use'`,
+                [act.id]
+            );
+            const newActiveCount = Number((newActiveRows as any[])[0].cnt);
+            await db.execute(
+                `UPDATE activities SET currentOccupancy = ? WHERE id = ?`,
+                [newActiveCount, act.id]
+            );
+        }
+    } catch (err) {
+        console.error('Error processing auto queue:', err);
+    }
+}
+
 app.get('/api/tokens', async (req, res) => {
     try {
+        await processAutoQueue();
         const { userId } = req.query;
         
         let query = `
-            SELECT t.*, a.name as activityName, u.username 
+            SELECT t.*, COALESCE(a.name, 'Unknown Activity') as activityName, u.username 
             FROM tokens t 
-            JOIN activities a ON t.activityId = a.id 
+            LEFT JOIN activities a ON t.activityId = a.id 
             JOIN users u ON t.userId = u.id 
         `;
         let params: any[] = [];
@@ -258,19 +310,35 @@ app.get('/api/tokens', async (req, res) => {
         const [rows] = await db.execute(query, params);
         const tokens = rows as any[];
 
+        console.log('[Tokens] Raw query result count:', tokens.length);
+        console.log('[Tokens] Sample raw token:', tokens[0]);
+
         // Transform to frontend format with computed fields
-        const formattedTokens = tokens.map((token, index) => ({
-            id: token.id,
-            name: token.activityName || 'Unknown',
-            code: token.code,
-            status: token.status === 'in_use' ? 'ready' : token.status,
-            queuePosition: token.status === 'queue' ? `#${index + 1}` : null,
-            qrImage: token.qrCode,
-            // Include additional fields for capacity control
-            username: token.username,
-            createdAt: token.createdAt,
-            expiresAt: token.expiresAt,
-        }));
+        const queuePositions: Record<string, number> = {};
+        const formattedTokens = tokens.map((token) => {
+            console.log(`[Tokens] Processing token ${token.code}: activityName="${token.activityName}", activityId=${token.activityId}`);
+            let qPos = null;
+            if (token.status === 'queue') {
+                queuePositions[token.activityId] = (queuePositions[token.activityId] || 0) + 1;
+                qPos = `#${queuePositions[token.activityId]}`;
+            }
+            
+            const baseTime = token.usedAt ? new Date(token.usedAt) : new Date(token.createdAt);
+            const computedExpiresAt = new Date(baseTime.getTime() + 120 * 60 * 1000).toISOString();
+            
+            return {
+                id: token.id,
+                activityId: token.activityId,
+                name: token.activityName || 'Unknown',
+                code: token.code,
+                status: token.status === 'in_use' ? 'ready' : token.status,
+                queuePosition: qPos,
+                qrImage: token.qrCode,
+                username: token.username,
+                createdAt: token.createdAt,
+                expiresAt: computedExpiresAt,
+            };
+        });
 
         res.json(formattedTokens);
     } catch (error) {
@@ -652,7 +720,8 @@ app.post('/api/activities/upload', (req, res, next) => {
             capacity, 
             rating = 0,
             reviewCount = 0,
-            safetyRules = []
+            safetyRules = [],
+            staff
         } = req.body || {};
 
         if (!name || !description || !price || !capacity) {
@@ -673,10 +742,46 @@ app.post('/api/activities/upload', (req, res, next) => {
             rating, reviewCount, JSON.stringify(safetyRules)
         ]);
 
+        const activityId = (result as any).insertId;
+        console.log('Activity created with ID:', activityId);
+
+        // Handle staff assignments
+        if (staff) {
+            try {
+                const staffIds = JSON.parse(staff);
+                console.log('Staff to assign:', staffIds);
+                
+                if (Array.isArray(staffIds) && staffIds.length > 0) {
+                    for (const userId of staffIds) {
+                        // Get staff.id from users.id
+                        const [staffRows] = await db.execute(
+                            'SELECT id FROM staff WHERE userId = ? AND isActive = 1',
+                            [userId]
+                        );
+                        const staffRecords = staffRows as any[];
+                        
+                        if (staffRecords.length > 0) {
+                            const staffId = staffRecords[0].id;
+                            await db.execute(`
+                                INSERT INTO staffActivities (staffId, activityId, isActive)
+                                VALUES (?, ?, 1)
+                            `, [staffId, activityId]);
+                            console.log(`Assigned staff ${staffId} to activity ${activityId}`);
+                        } else {
+                            console.warn(`No staff record found for userId: ${userId}`);
+                        }
+                    }
+                }
+            } catch (staffError) {
+                console.error('Error assigning staff:', staffError);
+                // Don't fail the request if staff assignment fails
+            }
+        }
+
         res.status(201).json({ 
             message: 'Activity created successfully',
             activity: {
-                id: (result as any).insertId,
+                id: activityId,
                 name,
                 description,
                 price,
@@ -853,7 +958,7 @@ app.post('/api/payment/process', async (req, res) => {
             // Store token in database
             const [tokenResult] = await db.execute(`
                 INSERT INTO tokens (code, activityId, userId, status, createdAt) 
-                VALUES (?, ?, ?, 'pending', NOW())
+                VALUES (?, ?, ?, 'queue', NOW())
             `, [tokenCode, activityId, finalUserId]);
             console.log(`[Payment] Token stored in DB: ID=${(tokenResult as any).insertId}`);
 
@@ -867,7 +972,7 @@ app.post('/api/payment/process', async (req, res) => {
                 token: {
                     id: (tokenResult as any).insertId,
                     code: tokenCode,
-                    status: 'pending'
+                    status: 'queue'
                 }
             };
 

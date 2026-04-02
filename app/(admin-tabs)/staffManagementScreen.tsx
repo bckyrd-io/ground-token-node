@@ -1,7 +1,7 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStore } from '../store';
 
@@ -9,9 +9,11 @@ export default function StaffManagementScreen() {
     const router = useRouter();
     const { staff, fetchStaff } = useStore();
 
-    useEffect(() => {
-        fetchStaff();
-    }, [fetchStaff]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchStaff();
+        }, [fetchStaff])
+    );
 
     // Calculate active staff count
     const activeStaffCount = staff.filter(member => member.status === 'Active').length;
@@ -93,8 +95,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 16,
         padding: 16, backgroundColor: COLORS.white, borderRadius: 16,
         borderWidth: 1, borderColor: COLORS.slate200,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05,
-        shadowRadius: 4, elevation: 2,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
     },
     avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.slate100, alignItems: 'center', justifyContent: 'center' },
     staffInfo: { flex: 1 },

@@ -51,6 +51,9 @@ type Token = {
     status: 'queue' | 'ready';
     queuePosition: string | null;
     qrImage: string;
+    activityId?: string | number;
+    expiresAt?: string;
+    createdAt?: string;
 };
 
 type StaffMember = {

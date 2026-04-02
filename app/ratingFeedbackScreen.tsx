@@ -7,14 +7,16 @@ import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from './store';
 import { showToast } from './toast';
+import { useLocalSearchParams } from 'expo-router';
 
 export default function RatingFeedbackScreen() {
     const router = useRouter();
+    const { activityId } = useLocalSearchParams<{ activityId: string }>();
     const [rating, setRating] = useState(4);
     const [comment, setComment] = useState('');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const { feedbackOptions, fetchFeedbackOptions } = useStore();
+    const { feedbackOptions, fetchFeedbackOptions, profile } = useStore();
 
     useEffect(() => {
         fetchFeedbackOptions();
@@ -32,8 +34,7 @@ export default function RatingFeedbackScreen() {
             const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
             
             // Mock user and activity IDs - in production, get from auth/params
-            const userId = 'user-001'; // Should come from auth context
-            const activityId = '1'; // Should come from route params
+            const userId = profile?.id;
 
             const response = await fetch(`${serverIp}/api/feedback`, {
                 method: 'POST',

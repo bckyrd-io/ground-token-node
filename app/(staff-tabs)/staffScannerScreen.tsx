@@ -1,8 +1,8 @@
 import { useIsFocused } from '@react-navigation/native';
-import { CameraView } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Button, StyleSheet, Text, View } from 'react-native';
 
 const COLORS = {
     primary: '#2E7D32',
@@ -13,15 +13,14 @@ const COLORS = {
 export default function StaffScannerScreen() {
     const router = useRouter();
     const isFocused = useIsFocused();
-    const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+    const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
 
     useEffect(() => {
-        (async () => {
-            const { status } = await CameraView.requestCameraPermissionsAsync();
-            setHasPermission(status === 'granted');
-        })();
-    }, []);
+        if (permission && !permission.granted) {
+            requestPermission();
+        }
+    }, [permission]);
 
     const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
         if (scanned) return;
@@ -37,19 +36,22 @@ export default function StaffScannerScreen() {
         ]);
     };
 
-    if (hasPermission === null) {
+    if (!permission) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={styles.statusText}>Requesting camera permission...</Text>
+                <Text style={styles.statusText}>Loading camera...</Text>
             </View>
         );
     }
 
-    if (hasPermission === false) {
+    if (!permission.granted) {
         return (
             <View style={styles.loadingContainer}>
-                <Text style={styles.statusText}>Camera access denied. Please grant camera permission in settings.</Text>
+                <Text style={styles.statusText}>Camera access denied. Please grant camera permission.</Text>
+                <View style={{ marginTop: 20 }}>
+                    <Button onPress={requestPermission} title="Grant Permission" color={COLORS.primary} />
+                </View>
             </View>
         );
     }

@@ -1,13 +1,95 @@
 import { COLORS } from '@/constants/theme';
+import { initializeNotifications, showImmediateNotification } from '@/utils/notifications';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import React from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useStore } from './store';
 
 export default function PlayTimerScreen() {
     const router = useRouter();
+    const { tokenId } = useLocalSearchParams<{ tokenId: string }>();
+    const { tokens } = useStore();
+    const [timeLeft, setTimeLeft] = useState('00:08');
+    const [isFinished, setIsFinished] = useState(false);
+
+    const token = tokens.find(t => t.id.toString() === tokenId);
+
+    // Initialize notifications on mount
+    useEffect(() => {
+        initializeNotifications();
+    }, []);
+
+    /*
+     * TODO: Replace this test timer with proper session duration from backend
+     * 
+     * IMPROVEMENTS NEEDED:
+     * 1. Get actual session duration from activity settings (e.g., 30 min, 1 hour, 2 hours)
+     * 2. Store session start time when token status changes to 'ready'
+     * 3. Calculate remaining time from: expiresAt - currentTime
+     * 4. Add server-side sync to prevent tampering with local time
+     * 5. Handle app background/foreground state to pause/resume timer accurately
+     * 6. Add push notification when session is about to expire (5 min warning)
+     * 7. Support different durations for different activity types
+     * 
+     * Current implementation uses hardcoded 8s for quick testing only.
+     */
+    useEffect(() => {
+        // TESTING: Hardcoded 8 second countdown for quick testing
+        let seconds = 8;
+        
+        const updateTimer = () => {
+            if (seconds <= 0) {
+                setTimeLeft('00:00');
+                setIsFinished(true);
+                // Show notification when timer ends
+                showImmediateNotification(
+                    'Play Session Ended',
+                    'Your play session has ended. Please leave feedback!',
+                    { tokenId, type: 'timer_end' },
+                    'timer-alerts'
+                );
+            } else {
+                setTimeLeft(`00:0${seconds}`);
+                seconds--;
+            }
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+        
+        /* ORIGINAL CODE - restore when proper session duration is implemented:
+        if (!token?.expiresAt) return;
+        
+        const updateTimer = () => {
+            const now = new Date().getTime();
+            const expires = new Date(token.expiresAt as string).getTime();
+            const diff = expires - now;
+
+            if (diff <= 0) {
+                setTimeLeft('00:00');
+                setIsFinished(true);
+            } else {
+                const minutes = Math.floor(diff / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+            }
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+        */
+    }, [token]);
+
+    const handleFinish = () => {
+        if (token) {
+            router.push({ pathname: '/ratingFeedbackScreen', params: { activityId: token.activityId } });
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -24,7 +106,7 @@ export default function PlayTimerScreen() {
                 {/* Timer */}
                 <View style={styles.timerSection}>
                     <View style={styles.timerCircle}>
-                        <Text style={styles.timerValue}>24:59</Text>
+                        <Text style={styles.timerValue}>{timeLeft}</Text>
                         <Text style={styles.timerLabel}>Remaining</Text>
                     </View>
                 </View>
@@ -37,7 +119,7 @@ export default function PlayTimerScreen() {
                         </View>
                         <View>
                             <Text style={styles.detailsLabel}>Currently Playing</Text>
-                            <Text style={styles.detailsValue}>Token: #GT-4829</Text>
+                            <Text style={styles.detailsValue}>Token: #{token?.code || 'Loading'}</Text>
                         </View>
                     </View>
 
@@ -46,7 +128,7 @@ export default function PlayTimerScreen() {
                     <View style={styles.zoneRow}>
                         <View>
                             <Text style={styles.detailsLabel}>Active Zone</Text>
-                            <Text style={styles.zoneValue}>Jungle Safari Zone</Text>
+                            <Text style={styles.zoneValue}>{token?.name || 'Loading Zone'}</Text>
                         </View>
                         <View style={styles.zoneImage}>
                             <Image
@@ -58,16 +140,23 @@ export default function PlayTimerScreen() {
                     </View>
                 </View>
 
-                {/* Safety Reminder */}
-                <View style={styles.reminderCard}>
-                    <MaterialIcons name="warning" size={20} color={COLORS.amber600} />
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.reminderTitle}>Safety Reminder</Text>
-                        <Text style={styles.reminderText}>
-                            Please ensure the Token holder stays within the Jungle Safari Zone boundaries. Staff are available at the entrance for assistance.
-                        </Text>
+                {/* Safety Reminder / Finish Button */}
+                {isFinished ? (
+                    <TouchableOpacity style={styles.finishBtn} onPress={handleFinish}>
+                        <Text style={styles.finishBtnText}>Session Finished - Leave Feedback</Text>
+                        <MaterialIcons name="arrow-forward" size={20} color={COLORS.white} />
+                    </TouchableOpacity>
+                ) : (
+                    <View style={styles.reminderCard}>
+                        <MaterialIcons name="warning" size={20} color={COLORS.amber600} />
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.reminderTitle}>Safety Reminder</Text>
+                            <Text style={styles.reminderText}>
+                                Please ensure the Token holder stays within the {token?.name || 'Zone'} boundaries. Staff are available at the entrance for assistance.
+                            </Text>
+                        </View>
                     </View>
-                </View>
+                )}
             </View>
         </SafeAreaView>
     );
@@ -120,4 +209,9 @@ const styles = StyleSheet.create({
     },
     reminderTitle: { fontSize: 14, fontWeight: '700', color: COLORS.amber800 },
     reminderText: { fontSize: 14, color: COLORS.amber700, lineHeight: 22, marginTop: 4 },
+    finishBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        height: 56, backgroundColor: COLORS.primary, borderRadius: 16, marginTop: 24,
+    },
+    finishBtnText: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
 });

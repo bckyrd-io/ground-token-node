@@ -1,8 +1,8 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStore } from '../store';
 
@@ -10,9 +10,11 @@ export default function ManageActivitiesScreen() {
     const router = useRouter();
     const { adminActivities, fetchAdminActivities } = useStore();
 
-    useEffect(() => {
-        fetchAdminActivities();
-    }, [fetchAdminActivities]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchAdminActivities();
+        }, [fetchAdminActivities])
+    );
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>

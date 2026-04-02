@@ -240,9 +240,7 @@ export default function AddActivityScreen() {
                                 </TouchableOpacity>
                             </View>
                             <ScrollView style={styles.staffList}>
-                                {staff
-                                    .filter(member => member.status === 'Active')
-                                    .map(member => (
+                                {staff.map(member => (
                                         <TouchableOpacity
                                             key={member.id}
                                             style={[

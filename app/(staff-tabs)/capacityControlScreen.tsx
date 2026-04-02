@@ -1,7 +1,8 @@
 import { COLORS } from '@/constants/theme';
+import { initializeNotifications, showImmediateNotification } from '@/utils/notifications';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useStore } from '../store';
 
@@ -29,6 +30,11 @@ export default function CapacityControlScreen() {
     const [isOpen, setIsOpen] = React.useState(true);
     const [tokens, setTokens] = useState<Token[]>([]);
     const [loading, setLoading] = useState(true);
+    const previousQueueLengthRef = useRef(0);
+
+    useEffect(() => {
+        initializeNotifications();
+    }, []);
 
     useEffect(() => {
         if (profile?.id) {
@@ -48,6 +54,26 @@ export default function CapacityControlScreen() {
             
             if (tokensResponse.ok) {
                 const tokensData = await tokensResponse.json();
+                
+                // Check for queue changes and notify
+                const activityTokens = staffActivity 
+                    ? tokensData.filter((token: Token) => 
+                        token.name?.toLowerCase().trim() === staffActivity.name?.toLowerCase().trim()
+                      )
+                    : [];
+                const queueTokens = activityTokens.filter((token: Token) => token.status === 'queue');
+                
+                // If someone moved to first position in queue, notify staff
+                if (queueTokens.length > 0 && previousQueueLengthRef.current === 0) {
+                    await showImmediateNotification(
+                        'New Visitor in Queue',
+                        `Token #${queueTokens[0].code} is now first in line for ${staffActivity?.name}`,
+                        { tokenId: queueTokens[0].id, type: 'queue_alert' },
+                        'queue-alerts'
+                    );
+                }
+                
+                previousQueueLengthRef.current = queueTokens.length;
                 setTokens(tokensData);
             }
         } catch (error) {
@@ -58,18 +84,33 @@ export default function CapacityControlScreen() {
     };
 
     // Filter tokens for the current staff's assigned activity
+    console.log('Staff activity name:', staffActivity?.name);
+    console.log('All tokens:', tokens.map(t => ({ name: t.name, status: t.status })));
+    
     const activityTokens = staffActivity 
-        ? tokens.filter(token => token.name === staffActivity.name)
+        ? tokens.filter(token => {
+            const match = token.name?.toLowerCase().trim() === staffActivity.name?.toLowerCase().trim();
+            if (!match) {
+                console.log(`Token ${token.code}: "${token.name}" !== "${staffActivity.name}"`);
+            }
+            return match;
+        })
         : [];
     
+    console.log('Activity tokens:', activityTokens.length);
+
+    // Get queue tokens (waiting) and active tokens (in use) for this activity
+    const queueTokens = activityTokens.filter(token => token.status === 'queue');
+    const activeTokens = activityTokens.filter(token => token.status === 'ready');
+    
+    console.log('Queue tokens:', queueTokens.length);
+    console.log('Active tokens:', activeTokens.length);
+
     // Calculate occupancy for the assigned activity
     const totalOccupancy = staffActivity ? staffActivity.currentOccupancy : 0;
     const totalCapacity = staffActivity ? staffActivity.capacity : 0;
     const occupancyPercentage = totalCapacity > 0 ? Math.round((totalOccupancy / totalCapacity) * 100) : 0;
     const remainingSpots = totalCapacity - totalOccupancy;
-
-    // Get active tokens (sessions) for this activity
-    const activeTokens = activityTokens.filter(token => token.status === 'ready');
 
     // Calculate time remaining for each token
     const getSessionTimeRemaining = (token: Token) => {
@@ -105,6 +146,23 @@ export default function CapacityControlScreen() {
         if (minutes < 30) return COLORS.orange600;
         return COLORS.primary;
     };
+
+    // Combine queue and active tokens into a unified visitor list
+    // Sort: queue first (by queue position), then active (by time remaining)
+    const allVisitorTokens = [...queueTokens, ...activeTokens].sort((a, b) => {
+        // Queue tokens come first
+        if (a.status === 'queue' && b.status !== 'queue') return -1;
+        if (a.status !== 'queue' && b.status === 'queue') return 1;
+        
+        // Within queue, sort by queue position
+        if (a.status === 'queue' && b.status === 'queue') {
+            const posA = parseInt(a.queuePosition || '0');
+            const posB = parseInt(b.queuePosition || '0');
+            return posA - posB;
+        }
+        
+        return 0;
+    });
 
     const handleCapacityControlToggle = async (newValue: boolean) => {
         if (!staffActivity) return;
@@ -145,10 +203,10 @@ export default function CapacityControlScreen() {
                 </View>
             </View>
 
-            {/* Zone Title */}
+            {/* Zone Title
             <View style={styles.zoneHeader}>
                 <Text style={styles.zoneName}>{staffActivity?.name || 'No Activity Assigned'}</Text>
-            </View>
+            </View> */}
 
             {/* Occupancy Card */}
             <View style={styles.occupancyCard}>
@@ -172,35 +230,69 @@ export default function CapacityControlScreen() {
                 <Text style={styles.spotsText}>{remainingSpots} spots remaining</Text>
             </View>
 
-            {/* Active Sessions */}
-            <Text style={styles.sessionsTitle}>Queue ({activeTokens.length})</Text>
+            {/* Visitor Queue - Unified List */}
+            <Text style={styles.sessionsTitle}>Visitor Queue ({allVisitorTokens.length})</Text>
             <View style={styles.sessionsList}>
                 {loading ? (
-                    <Text style={styles.loadingText}>Loading sessions...</Text>
+                    <Text style={styles.loadingText}>Loading...</Text>
                 ) : !staffActivity ? (
-                    <Text style={styles.emptyText}>No activity assigned to this staff member</Text>
-                ) : activeTokens.length === 0 ? (
-                    <Text style={styles.emptyText}>No active sessions for {staffActivity.name}</Text>
+                    <Text style={styles.emptyText}>No activity assigned</Text>
+                ) : allVisitorTokens.length === 0 ? (
+                    <Text style={styles.emptyText}>No visitors in queue for {staffActivity.name}</Text>
                 ) : (
-                    activeTokens.map((token) => {
-                        const timeRemaining = getSessionTimeRemaining(token);
+                    allVisitorTokens.map((token) => {
+                        const isQueue = token.status === 'queue';
+                        const timeRemaining = !isQueue ? getSessionTimeRemaining(token) : null;
+                        
                         return (
                             <View key={token.id} style={styles.sessionCard}>
                                 <View style={styles.sessionLeft}>
-                                    <View style={styles.sessionIcon}>
-                                        <MaterialIcons name="child-care" size={20} color={COLORS.primary} />
+                                    <View style={[
+                                        styles.sessionIcon, 
+                                        { backgroundColor: isQueue ? 'rgba(255,152,0,0.1)' : 'rgba(46,125,50,0.1)' }
+                                    ]}>
+                                        <MaterialIcons 
+                                            name={isQueue ? "schedule" : "child-care"} 
+                                            size={20} 
+                                            color={isQueue ? COLORS.orange600 : COLORS.primary} 
+                                        />
                                     </View>
                                     <View>
-                                        <Text style={styles.sessionId}>#{token.code}</Text>
+                                        <View style={styles.tokenRow}>
+                                            <Text style={styles.sessionId}>#{token.code}</Text>
+                                            {/* Status Badge */}
+                                            <View style={[
+                                                styles.statusBadge,
+                                                { backgroundColor: isQueue ? COLORS.orange100 : COLORS.green100 }
+                                            ]}>
+                                                <Text style={[
+                                                    styles.statusBadgeText,
+                                                    { color: isQueue ? COLORS.orange700 : COLORS.green700 }
+                                                ]}>
+                                                    {isQueue ? 'WAITING' : 'ACTIVE'}
+                                                </Text>
+                                            </View>
+                                        </View>
                                         <Text style={styles.sessionZone}>{token.name}</Text>
                                         <Text style={styles.sessionUser}>{token.username || 'Guest'}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.sessionRight}>
-                                    <Text style={[styles.sessionTime, { color: getTimeColor(timeRemaining) }]}>
-                                        {timeRemaining}
-                                    </Text>
-                                    <Text style={styles.sessionLabel}>Time Remaining</Text>
+                                    {isQueue ? (
+                                        <>
+                                            <Text style={[styles.sessionTime, { color: COLORS.orange600 }]}>
+                                                {token.queuePosition || '-'}
+                                            </Text>
+                                            <Text style={styles.sessionLabel}>Queue #</Text>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Text style={[styles.sessionTime, { color: getTimeColor(timeRemaining || '') }]}>
+                                                {timeRemaining}
+                                            </Text>
+                                            <Text style={styles.sessionLabel}>Time Left</Text>
+                                        </>
+                                    )}
                                 </View>
                             </View>
                         );
@@ -222,16 +314,16 @@ const styles = StyleSheet.create({
         marginHorizontal: 16, backgroundColor: COLORS.white, borderRadius: 12,
         padding: 20, flexDirection: 'row', alignItems: 'center',
         justifyContent: 'space-between', borderWidth: 1, borderColor: COLORS.slate100,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05,
-        shadowRadius: 4, elevation: 2, marginBottom: 16,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+        marginBottom: 16,
     },
     statusTitle: { fontSize: 18, fontWeight: '700', color: COLORS.slate900 },
     statusValue: { fontSize: 14, fontWeight: '500', marginTop: 4 },
     occupancyCard: {
         marginHorizontal: 16, backgroundColor: COLORS.white, borderRadius: 12,
         padding: 20, borderWidth: 1, borderColor: COLORS.slate100,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05,
-        shadowRadius: 4, elevation: 2, marginBottom: 24,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+        marginBottom: 24,
     },
     occupancyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
     occupancyLabel: { fontSize: 14, color: COLORS.slate500, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -248,8 +340,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.white, borderRadius: 12, padding: 16,
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         borderWidth: 1, borderColor: COLORS.slate100,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05,
-        shadowRadius: 4, elevation: 2,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
     },
     sessionLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     sessionIcon: {
@@ -257,6 +348,9 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(46,125,50,0.1)', alignItems: 'center', justifyContent: 'center',
     },
     sessionId: { fontSize: 14, fontWeight: '700', color: COLORS.slate900 },
+    tokenRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+    statusBadgeText: { fontSize: 10, fontWeight: '700' },
     sessionZone: { fontSize: 12, color: COLORS.slate500, marginTop: 2 },
     sessionUser: { fontSize: 11, color: COLORS.slate400, marginTop: 2 },
     sessionRight: { alignItems: 'flex-end' },
@@ -264,7 +358,7 @@ const styles = StyleSheet.create({
     sessionLabel: { fontSize: 11, color: COLORS.slate500, marginTop: 2 },
     loadingText: { fontSize: 14, color: COLORS.slate500, textAlign: 'center', padding: 20 },
     emptyText: { fontSize: 14, color: COLORS.slate400, textAlign: 'center', padding: 20 },
-    cameraView: { marginHorizontal: 16, height: 192, borderRadius: 12, overflow: 'hidden', marginTop: 20, position: 'relative', backgroundColor: COLORS.slate200 },
+    cameraView: { marginHorizontal: 16, height: 192, borderRadius: 12, overflow: 'hidden', marginTop: 20, marginBottom:20, position: 'relative', backgroundColor: COLORS.slate200 },
     cameraImage: { ...StyleSheet.absoluteFillObject, opacity: 0.8 },
     cameraOverlay: {
         ...StyleSheet.absoluteFillObject,

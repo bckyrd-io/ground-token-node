@@ -1,22 +1,62 @@
 import { COLORS } from '@/constants/theme';
-import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { initializeNotifications, showImmediateNotification } from '@/utils/notifications';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useStore } from '../store';
 
 export default function MyTokensScreen() {
     const { tokens, fetchTokens, profile } = useStore();
+    const router = useRouter();
+    const previousTokensRef = useRef(tokens);
 
+    // Initialize notifications on mount
     useEffect(() => {
-        if (profile?.id) {
-            fetchTokens(profile.id);
-        }
-    }, [fetchTokens, profile?.id]);
+        initializeNotifications();
+    }, []);
+
+    // Check for token status changes and notify when promoted to ready
+    useEffect(() => {
+        const previousTokens = previousTokensRef.current;
+        
+        tokens.forEach(token => {
+            const previousToken = previousTokens.find(t => t.id === token.id);
+            if (previousToken && previousToken.status === 'queue' && token.status === 'ready') {
+                // Token was promoted from queue to ready - notify visitor
+                showImmediateNotification(
+                    "It's Your Turn!",
+                    `Token #${token.code} for ${token.name} is now ready. Show your QR code to the staff!`,
+                    { tokenId: token.id, type: 'token_ready' },
+                    'queue-alerts'
+                );
+            }
+        });
+        
+        previousTokensRef.current = tokens;
+    }, [tokens]);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (profile?.id) {
+                fetchTokens(profile.id);
+            }
+        }, [fetchTokens, profile?.id])
+    );
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             {tokens.map((token) => (
-                <View key={token.id} style={styles.card}>
+                <TouchableOpacity 
+                    key={token.id} 
+                    style={[styles.card, token.status === 'ready' && { borderColor: COLORS.primary, borderWidth: 2 }]}
+                    activeOpacity={token.status === 'ready' ? 0.7 : 1}
+                    onPress={() => {
+                        if (token.status === 'ready') {
+                            router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
+                        }
+                    }}
+                >
                     {/* Card Header */}
                     <View style={styles.cardHeader}>
                         <View>
@@ -48,7 +88,7 @@ export default function MyTokensScreen() {
                         <View style={[styles.corner, styles.bottomLeft]} />
                         <View style={[styles.corner, styles.bottomRight]} />
                     </View>
-                </View>
+                </TouchableOpacity>
             ))}
 
             {/* Instructions */}

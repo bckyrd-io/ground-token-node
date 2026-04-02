@@ -59,10 +59,14 @@ export const COLORS = {
   amber50: '#fffbeb',
   green500: '#22c55e',
   green50: '#f0fdf4',
+  green100: '#dcfce7',
+  green700: '#15803d',
   amber400: '#fbbf24',
   red600: '#dc2626',
   red500: '#ef4444',
   orange600: '#ea580c',
+  orange100: '#ffedd5',
+  orange700: '#c2410c',
 };
 
 export const Fonts = Platform.select({
