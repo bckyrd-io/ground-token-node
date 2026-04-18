@@ -22,12 +22,118 @@
  */
 
 import cors from 'cors';
+import 'dotenv/config';
 import express from 'express';
 import fs from 'fs';
 import multer from 'multer';
 import mysql from 'mysql2/promise';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// PayChangu Configuration
+const PAYCHANGU_SECRET_KEY = process.env.PAYCHANGU_SECRET_KEY || '';
+const PAYCHANGU_BASE_URL = process.env.PAYCHANGU_BASE_URL || 'https://api.paychangu.com';
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
+
+// PayChangu API helper function
+async function initiatePayChanguPayment(params: {
+  amount: number;
+  mobile: string;
+  provider: string;
+  chargeId: string;
+}) {
+  const { amount, mobile, provider, chargeId } = params;
+  
+  // Convert phone to 9 digits (remove leading 0 or +265)
+  let cleanMobile = mobile.replace(/\D/g, ''); // Remove non-digits
+  if (cleanMobile.startsWith('0')) {
+    cleanMobile = cleanMobile.substring(1); // Remove leading 0
+  }
+  if (cleanMobile.startsWith('265')) {
+    cleanMobile = cleanMobile.substring(3); // Remove country code
+  }
+  
+  // Fetch operators dynamically from PayChangu
+  const operators = await fetchMobileMoneyOperators();
+  console.log('[PayChangu] Available operators:', operators.map(o => ({ name: o.name, ref_id: o.ref_id })));
+  
+  // Find operator by name (case-insensitive partial match)
+  const providerLower = provider.toLowerCase();
+  const operator = operators.find(op => 
+    op.name.toLowerCase().includes(providerLower) || 
+    providerLower.includes(op.name.toLowerCase().replace(' ', ''))
+  );
+  
+  if (!operator) {
+    throw new Error(`Mobile money operator not found for provider: ${provider}. Available: ${operators.map(o => o.name).join(', ')}`);
+  }
+  
+  console.log(`[PayChangu] Using operator: ${operator.name} (${operator.ref_id})`);
+  
+  const response = await fetch(`${PAYCHANGU_BASE_URL}/mobile-money/payments/initialize`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${PAYCHANGU_SECRET_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      amount: amount.toString(),
+      mobile: cleanMobile,
+      mobile_money_operator_ref_id: operator.ref_id,
+      charge_id: chargeId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`PayChangu API error: ${response.status} - ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+// Fetch Mobile Money Operators from PayChangu
+async function fetchMobileMoneyOperators(): Promise<Array<{ref_id: string, name: string, country: string}>> {
+  try {
+    const response = await fetch(`${PAYCHANGU_BASE_URL}/mobile-money`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${PAYCHANGU_SECRET_KEY}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('[PayChangu] Failed to fetch operators:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error('[PayChangu] Error fetching operators:', error);
+    return [];
+  }
+}
+
+// Verify PayChangu payment status
+async function verifyPayChanguPayment(chargeId: string) {
+  const response = await fetch(`${PAYCHANGU_BASE_URL}/mobile-money/payments/${chargeId}/verify`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${PAYCHANGU_SECRET_KEY}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`PayChangu verification error: ${response.status} - ${errorText}`);
+  }
+
+  return await response.json();
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -161,6 +267,7 @@ app.get('/api/activities', async (req, res) => {
             id: activity.id,
             name: activity.name,
             description: activity.description,
+            type: activity.type || 'play',
             price: activity.price,
             currentOccupancy: activity.currentOccupancy,
             capacity: activity.capacity,
@@ -197,6 +304,7 @@ app.get('/api/activities/:id', async (req, res) => {
         res.json({
             id: activity.id,
             name: activity.name,
+            type: activity.type || 'play',
             price: activity.price,
             capacity: activity.capacity,
             currentOccupancy: activity.currentOccupancy,
@@ -222,6 +330,7 @@ app.get('/api/admin/activities', async (req, res) => {
         const adminActivities = activities.map(activity => ({
             id: activity.id,
             name: activity.name,
+            type: activity.type || 'play',
             capacity: `${activity.currentOccupancy}/${activity.capacity}`,
             percent: (activity.currentOccupancy / activity.capacity) * 100,
             image: activity.image,
@@ -292,7 +401,8 @@ app.get('/api/tokens', async (req, res) => {
         const { userId } = req.query;
         
         let query = `
-            SELECT t.*, COALESCE(a.name, 'Unknown Activity') as activityName, u.username 
+            SELECT t.*, COALESCE(a.name, 'Unknown Activity') as activityName, 
+                   COALESCE(a.type, 'play') as activityType, u.username 
             FROM tokens t 
             LEFT JOIN activities a ON t.activityId = a.id 
             JOIN users u ON t.userId = u.id 
@@ -337,6 +447,7 @@ app.get('/api/tokens', async (req, res) => {
                 username: token.username,
                 createdAt: token.createdAt,
                 expiresAt: computedExpiresAt,
+                activityType: token.activityType || 'play',
             };
         });
 
@@ -402,6 +513,7 @@ app.get('/api/staff/:staffId/activity', async (req, res) => {
         res.json({
             id: activity.id,
             name: activity.name,
+            type: activity.type || 'play',
             description: activity.description,
             price: activity.price,
             capacity: activity.capacity,
@@ -632,7 +744,8 @@ app.post('/api/activities', async (req, res) => {
         // Handle JSON requests only
         const { 
             name, 
-            description, 
+            description,
+            type = 'play',
             price, 
             capacity, 
             rating = 0,
@@ -649,11 +762,11 @@ app.post('/api/activities', async (req, res) => {
 
         const [result] = await db.execute(`
             INSERT INTO activities (
-                name, description, price, capacity, currentOccupancy, 
+                name, description, type, price, capacity, currentOccupancy, 
                 image, rating, reviewCount, safetyRules, isActive
-            ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 1)
+            ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 1)
         `, [
-            name, description, price, capacity, imagePath, 
+            name, description, type, price, capacity, imagePath, 
             rating, reviewCount, JSON.stringify(safetyRules)
         ]);
 
@@ -715,7 +828,8 @@ app.post('/api/activities/upload', (req, res, next) => {
         
         const { 
             name, 
-            description, 
+            description,
+            type = 'play',
             price, 
             capacity, 
             rating = 0,
@@ -734,11 +848,11 @@ app.post('/api/activities/upload', (req, res, next) => {
 
         const [result] = await db.execute(`
             INSERT INTO activities (
-                name, description, price, capacity, currentOccupancy, 
+                name, description, type, price, capacity, currentOccupancy, 
                 image, rating, reviewCount, safetyRules, isActive
-            ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 1)
+            ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 1)
         `, [
-            name, description, price, capacity, imagePath, 
+            name, description, type, price, capacity, imagePath, 
             rating, reviewCount, JSON.stringify(safetyRules)
         ]);
 
@@ -784,6 +898,7 @@ app.post('/api/activities/upload', (req, res, next) => {
                 id: activityId,
                 name,
                 description,
+                type,
                 price,
                 capacity,
                 image: imagePath,
@@ -874,28 +989,22 @@ app.put('/api/users/:id', async (req, res) => {
  * Payment Simulation Routes
  */
 
-// Simulate payment processing
+// Initiate payment with PayChangu
 app.post('/api/payment/process', async (req, res) => {
     try {
         const { phoneNumber, amount, provider, activityId, userId } = req.body;
-        console.log(`[Payment] Processing payment: Phone=${phoneNumber}, Amount=${amount}, Provider=${provider}, ActivityID=${activityId}, UserID=${userId || 'guest'}`);
+        console.log(`[Payment] Initiating PayChangu payment: Phone=${phoneNumber}, Amount=${amount}, Provider=${provider}, ActivityID=${activityId}, UserID=${userId || 'guest'}`);
 
         if (!phoneNumber || !amount || !provider) {
             console.log('[Payment] Failed: Missing payment details');
             return res.status(400).json({ error: 'Missing payment details' });
         }
 
-        // Simulate payment processing delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Generate unique transaction ID
-        const transactionId = 'PC' + Date.now();
-        const gatewayTransactionId = 'GTW' + Math.random().toString(36).substr(2, 12).toUpperCase();
-        const paymentId = 'pay_' + Math.random().toString(36).substr(2, 12) + Date.now();
-
-        // For demo purposes, always succeed (PayChangu fake success)
-        // In production, this would integrate with real PayChangu API
-        const isSuccess = true; // Always success for demo
+        // Check if PayChangu is configured
+        if (!PAYCHANGU_SECRET_KEY) {
+            console.error('[Payment] PayChangu not configured - PAYCHANGU_SECRET_KEY missing');
+            return res.status(500).json({ error: 'Payment gateway not configured' });
+        }
 
         // Determine the user ID - use provided userId or create new guest user
         let finalUserId = userId;
@@ -916,7 +1025,7 @@ app.post('/api/payment/process', async (req, res) => {
                 guestCode,
                 '', // Empty password until they set it via profile update
                 'visitor',
-                phoneNumber // Still store phone for payment record, but not as username
+                phoneNumber // Still store phone for payment record
             ]);
             finalUserId = (newUser as any).insertId;
             guestUser = {
@@ -939,69 +1048,283 @@ app.post('/api/payment/process', async (req, res) => {
             }
         }
 
+        // Format phone number for PayChangu (ensure +265 format)
+        let formattedPhone = phoneNumber;
+        if (formattedPhone.startsWith('0')) {
+            formattedPhone = '+265' + formattedPhone.substring(1);
+        } else if (!formattedPhone.startsWith('+')) {
+            formattedPhone = '+265' + formattedPhone;
+        }
+
+        // Get user's email (use guest email or fetch from DB)
+        let userEmail = guestUser?.email || `${finalUserId}@gelatokids.com`;
+        if (!guestUser) {
+            const [userRows] = await db.execute('SELECT email FROM users WHERE id = ?', [finalUserId]);
+            const users = userRows as any[];
+            if (users.length > 0 && users[0].email) {
+                userEmail = users[0].email;
+            }
+        }
+
+        // Generate transaction reference
+        const transactionId = 'PC' + Date.now();
+        
+        // Construct webhook URL (use environment or default)
+        const serverUrl = process.env.EXPO_PUBLIC_API_URL || `http://localhost:${PORT}`;
+        const callbackUrl = `${serverUrl}/api/payment/webhook`;
+
+        // Initiate PayChangu payment
+        let paychanguResponse;
+        try {
+            paychanguResponse = await initiatePayChanguPayment({
+                amount: parseInt(amount),
+                mobile: phoneNumber,
+                provider: provider,
+                chargeId: transactionId,
+            });
+            console.log(`[Payment] PayChangu response:`, paychanguResponse);
+        } catch (apiError: any) {
+            console.error('[Payment] PayChangu API error:', apiError.message);
+            return res.status(500).json({ 
+                error: 'Payment gateway error', 
+                details: apiError.message 
+            });
+        }
+
+        // Store pending payment in database
+        const gatewayResponse = JSON.stringify(paychanguResponse);
+        const chargeId = paychanguResponse.data?.charge_id || paychanguResponse.data?.ref_id || transactionId;
+        const gatewayTransId = paychanguResponse.data?.trans_id || '';
+        
         const [paymentResult] = await db.execute(`
             INSERT INTO payments (
                 transactionId, userId, activityId, amount, currency, 
                 provider, phoneNumber, status, gatewayTransactionId, 
                 processedAt, gatewayResponse
-            ) VALUES (?, ?, ?, ?, 'MWK', ?, ?, 'completed', ?, NOW(), ?)
+            ) VALUES (?, ?, ?, ?, 'MWK', ?, ?, 'pending', ?, NOW(), ?)
         `, [
-            transactionId, finalUserId, activityId || null, amount, provider, phoneNumber, 
-            gatewayTransactionId, JSON.stringify({ status: 'success', message: 'Payment processed successfully' })
+            chargeId, finalUserId, activityId || null, amount, provider, phoneNumber, 
+            gatewayTransId, gatewayResponse
         ]);
 
-        if (isSuccess) {
-            // Generate a token after successful payment
-            const tokenCode = 'GT-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-            console.log(`[Payment] Payment successful. Token generated: ${tokenCode} for UserID: ${finalUserId}`);
-            
-            // Store token in database
-            const [tokenResult] = await db.execute(`
-                INSERT INTO tokens (code, activityId, userId, status, createdAt) 
-                VALUES (?, ?, ?, 'queue', NOW())
-            `, [tokenCode, activityId, finalUserId]);
-            console.log(`[Payment] Token stored in DB: ID=${(tokenResult as any).insertId}`);
+        const paymentId = (paymentResult as any).insertId;
 
-            // Build response
-            const response: any = {
-                success: true,
-                message: 'Payment processed successfully via PayChangu',
-                transactionId: transactionId,
-                provider: 'PayChangu',
-                paymentId: (paymentResult as any).insertId,
-                token: {
-                    id: (tokenResult as any).insertId,
-                    code: tokenCode,
-                    status: 'queue'
-                }
-            };
+        // Store pending token (will be activated on webhook confirmation)
+        const tokenCode = 'GT-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+        const [tokenResult] = await db.execute(`
+            INSERT INTO tokens (code, activityId, userId, status, createdAt, paymentId) 
+            VALUES (?, ?, ?, 'pending', NOW(), ?)
+        `, [tokenCode, activityId, finalUserId, paymentId]);
+        
+        console.log(`[Payment] Pending token created: ${tokenCode} (ID=${(tokenResult as any).insertId})`);
 
-            // Include user data if guest checkout (new or existing user by phone)
-            if (guestUser) {
-                response.user = guestUser;
-                console.log(`[Payment] Returning guest user data: ${guestUser.username}`);
+        // Build response
+        const response: any = {
+            success: true,
+            pending: true,
+            message: 'Payment initiated. Please check your phone and authorize the payment.',
+            chargeId: chargeId,
+            paymentId: paymentId,
+            provider: 'PayChangu',
+            token: {
+                id: (tokenResult as any).insertId,
+                code: tokenCode,
+                status: 'pending'
             }
+        };
 
-            console.log(`[Payment] Response sent: success=true, PaymentID=${response.paymentId}`);
-            res.json(response);
-        } else {
-            // Update payment status to failed
-            console.log(`[Payment] Payment failed for transaction: ${transactionId}`);
-            await db.execute(`
-                UPDATE payments SET status = 'failed', failedReason = ?, processedAt = NOW()
-                WHERE transactionId = ?
-            `, ['PayChangu transaction declined', transactionId]);
-
-            res.status(400).json({
-                success: false,
-                message: 'Payment failed. Please try again.',
-                error: 'PayChangu transaction declined',
-                transactionId: transactionId
-            });
+        // Include user data if guest checkout
+        if (guestUser) {
+            response.user = guestUser;
+            console.log(`[Payment] Returning guest user data: ${guestUser.username}`);
         }
+
+        console.log(`[Payment] Response sent: pending=true, ChargeID=${chargeId}`);
+        res.json(response);
+
     } catch (error) {
-        console.error('[Payment] Error processing payment:', error);
-        res.status(500).json({ error: 'PayChangu payment processing failed' });
+        console.error('[Payment] Error initiating payment:', error);
+        res.status(500).json({ error: 'Payment initiation failed' });
+    }
+});
+
+// PayChangu Webhook Handler
+app.post('/api/payment/webhook', async (req, res) => {
+    try {
+        const payload = req.body;
+        console.log('[Webhook] Received PayChangu webhook:', JSON.stringify(payload));
+
+        // Verify webhook signature if secret is configured
+        if (WEBHOOK_SECRET) {
+            const signature = req.headers['x-paychangu-signature'];
+            // TODO: Implement signature verification if PayChangu provides it
+            console.log('[Webhook] Signature verification skipped (not implemented)');
+        }
+
+        // Extract event data
+        const event = payload.event;
+        const data = payload.data;
+
+        if (!data || !data.charge_id) {
+            console.error('[Webhook] Invalid webhook payload: missing charge_id');
+            return res.status(400).json({ error: 'Invalid payload' });
+        }
+
+        const chargeId = data.charge_id;
+        const status = data.status || event;
+
+        console.log(`[Webhook] Processing event: ${event}, ChargeID: ${chargeId}, Status: ${status}`);
+
+        // Find payment by transactionId (charge_id)
+        const [paymentRows] = await db.execute(
+            'SELECT * FROM payments WHERE transactionId = ?',
+            [chargeId]
+        );
+        const payments = paymentRows as any[];
+
+        if (payments.length === 0) {
+            console.error(`[Webhook] Payment not found for charge_id: ${chargeId}`);
+            return res.status(404).json({ error: 'Payment not found' });
+        }
+
+        const payment = payments[0];
+
+        if (status === 'successful' || status === 'success' || event === 'charge.successful') {
+            // Payment successful - activate token
+            console.log(`[Webhook] Payment successful for charge: ${chargeId}`);
+
+            await db.execute(`
+                UPDATE payments 
+                SET status = 'completed', 
+                    gatewayResponse = CONCAT(gatewayResponse, '\nWebhook: ', ?),
+                    processedAt = NOW()
+                WHERE transactionId = ?
+            `, [JSON.stringify(payload), chargeId]);
+
+            // Activate the token
+            const [tokenResult] = await db.execute(`
+                UPDATE tokens 
+                SET status = 'queue'
+                WHERE paymentId = ? AND status = 'pending'
+            `, [payment.id]);
+
+            console.log(`[Webhook] Token activated for payment ${payment.id}, rows affected: ${(tokenResult as any).affectedRows}`);
+
+            res.json({ received: true, status: 'success' });
+        } else if (status === 'failed' || status === 'cancelled' || status === 'declined') {
+            // Payment failed
+            console.log(`[Webhook] Payment failed for charge: ${chargeId}`);
+
+            await db.execute(`
+                UPDATE payments 
+                SET status = 'failed', 
+                    failedReason = ?,
+                    gatewayResponse = CONCAT(gatewayResponse, '\nWebhook: ', ?),
+                    processedAt = NOW()
+                WHERE transactionId = ?
+            `, [status, JSON.stringify(payload), chargeId]);
+
+            // Delete or mark the pending token as cancelled
+            await db.execute(`
+                UPDATE tokens 
+                SET status = 'cancelled'
+                WHERE paymentId = ? AND status = 'pending'
+            `, [payment.id]);
+
+            res.json({ received: true, status: 'failed' });
+        } else {
+            // Other status (pending, processing, etc.) - just log
+            console.log(`[Webhook] Payment status update for charge ${chargeId}: ${status}`);
+            
+            await db.execute(`
+                UPDATE payments 
+                SET gatewayResponse = CONCAT(gatewayResponse, '\nWebhook: ', ?)
+                WHERE transactionId = ?
+            `, [JSON.stringify(payload), chargeId]);
+
+            res.json({ received: true, status: 'acknowledged' });
+        }
+
+    } catch (error) {
+        console.error('[Webhook] Error processing webhook:', error);
+        res.status(500).json({ error: 'Webhook processing failed' });
+    }
+});
+
+// Check payment status (polling endpoint for frontend)
+app.get('/api/payment/status/:chargeId', async (req, res) => {
+    try {
+        const { chargeId } = req.params;
+        
+        const [paymentRows] = await db.execute(
+            'SELECT * FROM payments WHERE transactionId = ?',
+            [chargeId]
+        );
+        const payments = paymentRows as any[];
+
+        if (payments.length === 0) {
+            return res.status(404).json({ error: 'Payment not found' });
+        }
+
+        const payment = payments[0];
+
+        // If payment is still pending, try to verify with PayChangu
+        if (payment.status === 'pending' && PAYCHANGU_SECRET_KEY) {
+            try {
+                const verification = await verifyPayChanguPayment(chargeId);
+                console.log(`[Payment Status] PayChangu verification for ${chargeId}:`, verification);
+
+                const paychanguStatus = verification.data?.status;
+                
+                if (paychanguStatus === 'successful' || paychanguStatus === 'success') {
+                    // Update payment and token status
+                    await db.execute(
+                        'UPDATE payments SET status = ? WHERE id = ?',
+                        ['completed', payment.id]
+                    );
+                    await db.execute(
+                        "UPDATE tokens SET status = 'queue' WHERE paymentId = ? AND status = 'pending'",
+                        [payment.id]
+                    );
+                    payment.status = 'completed';
+                } else if (paychanguStatus === 'failed' || paychanguStatus === 'cancelled') {
+                    await db.execute(
+                        'UPDATE payments SET status = ?, failedReason = ? WHERE id = ?',
+                        ['failed', paychanguStatus, payment.id]
+                    );
+                    await db.execute(
+                        "UPDATE tokens SET status = 'cancelled' WHERE paymentId = ? AND status = 'pending'",
+                        [payment.id]
+                    );
+                    payment.status = 'failed';
+                }
+            } catch (verifyError) {
+                console.error(`[Payment Status] Verification error for ${chargeId}:`, verifyError);
+            }
+        }
+
+        // Get token info
+        const [tokenRows] = await db.execute(
+            'SELECT * FROM tokens WHERE paymentId = ?',
+            [payment.id]
+        );
+        const tokens = tokenRows as any[];
+
+        res.json({
+            chargeId: chargeId,
+            status: payment.status,
+            amount: payment.amount,
+            createdAt: payment.createdAt,
+            token: tokens.length > 0 ? {
+                id: tokens[0].id,
+                code: tokens[0].code,
+                status: tokens[0].status
+            } : null
+        });
+
+    } catch (error) {
+        console.error('[Payment Status] Error:', error);
+        res.status(500).json({ error: 'Failed to check payment status' });
     }
 });
 

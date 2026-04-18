@@ -21,6 +21,7 @@ type Activity = {
     waitTime: string;
     waitColor: string;
     image: string;
+    type: 'play' | 'food';
 };
 
 type AdminActivity = {
@@ -42,6 +43,7 @@ type ActivityDetail = {
     currentOccupancy: number;
     image: string;
     safetyRules: string[];
+    type: 'play' | 'food';
 };
 
 type Token = {
@@ -52,6 +54,7 @@ type Token = {
     queuePosition: string | null;
     qrImage: string;
     activityId?: string | number;
+    activityType?: 'play' | 'food';
     expiresAt?: string;
     createdAt?: string;
 };
@@ -74,6 +77,7 @@ type StaffActivity = {
     currentOccupancy: number;
     image: string;
     safetyRules: string[];
+    isCapacityControlOpen?: boolean | number;
 };
 
 type FeedbackOptions = {
@@ -169,7 +173,7 @@ export const useStore = create<StoreState>((set, get) => ({
             const { serverIp } = get();
             const response = await fetch(`${serverIp}/api/activities`);
             const data = await response.json();
-            
+
             // Compute wait time and color on frontend
             const processedActivities = data.map((activity: any) => {
                 const occupancyRate = activity.currentOccupancy / activity.capacity;
@@ -194,7 +198,7 @@ export const useStore = create<StoreState>((set, get) => ({
                     waitColor,
                 };
             });
-            
+
             set({ activities: processedActivities });
         } catch (error) {
             console.error('Failed to fetch activities:', error);

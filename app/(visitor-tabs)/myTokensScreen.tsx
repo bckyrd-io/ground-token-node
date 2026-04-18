@@ -1,5 +1,5 @@
 import { COLORS } from '@/constants/theme';
-import { initializeNotifications, showImmediateNotification } from '@/utils/notifications';
+import { showImmediateNotification } from '@/utils/notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -10,11 +10,6 @@ export default function MyTokensScreen() {
     const { tokens, fetchTokens, profile } = useStore();
     const router = useRouter();
     const previousTokensRef = useRef(tokens);
-
-    // Initialize notifications on mount
-    useEffect(() => {
-        initializeNotifications();
-    }, []);
 
     // Check for token status changes and notify when promoted to ready
     useEffect(() => {
@@ -53,7 +48,11 @@ export default function MyTokensScreen() {
                     activeOpacity={token.status === 'ready' ? 0.7 : 1}
                     onPress={() => {
                         if (token.status === 'ready') {
-                            router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
+                            if (token.activityType === 'food') {
+                                router.push({ pathname: '/ratingFeedbackScreen', params: { activityId: token.activityId } });
+                            } else {
+                                router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
+                            }
                         }
                     }}
                 >
@@ -64,12 +63,16 @@ export default function MyTokensScreen() {
                             <Text style={styles.tokenCode}>{token.code}</Text>
                         </View>
                         {token.status === 'ready' ? (
-                            <View style={styles.readyBadge}>
-                                <Text style={styles.readyBadgeText}>Ready to Play</Text>
+                            <View style={[styles.readyBadge, token.activityType === 'food' && styles.foodReadyBadge]}>
+                                <Text style={styles.readyBadgeText}>
+                                    {token.activityType === 'food' ? 'Ready to Serve' : 'Ready to Play'}
+                                </Text>
                             </View>
                         ) : (
-                            <View style={styles.queueBadge}>
-                                <Text style={styles.queueBadgeText}>Queue Position: {token.queuePosition}</Text>
+                            <View style={[styles.queueBadge, token.activityType === 'food' && styles.foodQueueBadge]}>
+                                <Text style={styles.queueBadgeText}>
+                                    {token.activityType === 'food' ? 'Order #' : 'Queue Position: '}{token.queuePosition}
+                                </Text>
                             </View>
                         )}
                     </View>
@@ -93,7 +96,7 @@ export default function MyTokensScreen() {
 
             {/* Instructions */}
             <Text style={styles.instructions}>
-                Show the QR code for your activity to the attendant when your number is called or your status is 'Ready'.
+                Show the QR code to the attendant when your number is called, your order is ready, or your status is 'Ready'.
             </Text>
         </ScrollView>
     );
@@ -158,6 +161,13 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: '700',
         color: COLORS.primary,
+    },
+    foodReadyBadge: {
+        backgroundColor: '#f97316', // Orange for food
+    },
+    foodQueueBadge: {
+        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+        borderColor: 'rgba(249, 115, 22, 0.2)',
     },
     qrContainer: {
         width: '100%',

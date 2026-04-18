@@ -1,6 +1,7 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as Print from 'expo-print';
 import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { showToast } from '../toast';
@@ -66,7 +67,215 @@ export default function AdminDashboardScreen() {
     };
 
     const handleExportReport = async () => {
-        showToast('PDF export temporarily unavailable');
+        try {
+            showToast('Generating report...', 'info');
+            
+            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const response = await fetch(`${serverIp}/api/admin/export-report`);
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch report data');
+            }
+            
+            const reportData = await response.json();
+            
+            // Generate HTML content for the PDF
+            const htmlContent = generateReportHTML(reportData);
+            
+            // Create PDF from HTML
+            const { uri } = await Print.printToFileAsync({
+                html: htmlContent,
+                base64: false
+            });
+            
+            // Share the PDF file
+            if (Sharing && await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, {
+                    mimeType: 'application/pdf',
+                    dialogTitle: 'Export Report',
+                    UTI: 'com.adobe.pdf'
+                });
+                showToast('Report exported successfully', 'success');
+            } else {
+                showToast('PDF saved to: ' + uri, 'success');
+            }
+        } catch (error) {
+            console.error('Export report error:', error);
+            showToast('Failed to export report. Please try again.', 'error');
+        }
+    };
+
+    const generateReportHTML = (data: any) => {
+        const today = new Date().toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+        
+        const summary = data.summary || {};
+        const activities = data.activities || [];
+        const staff = data.staff || [];
+        const recentTokens = data.recentTokens || [];
+        
+        const activityRows = activities.map((a: any) => `
+            <tr>
+                <td>${a.name || 'Unknown'}</td>
+                <td>${a.capacity || '0/0'}</td>
+                <td>${Math.round(a.percent || 0)}%</td>
+            </tr>
+        `).join('');
+        
+        const staffRows = staff.map((s: any) => `
+            <tr>
+                <td>${s.name || 'Unknown'}</td>
+                <td>${s.zone || 'Unassigned'}</td>
+                <td>${s.status || 'Unknown'}</td>
+            </tr>
+        `).join('');
+        
+        const tokenRows = recentTokens.slice(0, 10).map((t: any) => `
+            <tr>
+                <td>${t.code || 'N/A'}</td>
+                <td>${t.activity || 'Unknown'}</td>
+                <td>${t.status || 'Unknown'}</td>
+                <td>${t.amount ? 'MWK ' + t.amount : 'N/A'}</td>
+            </tr>
+        `).join('');
+        
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+                    h1 { color: #2E7D32; border-bottom: 3px solid #2E7D32; padding-bottom: 10px; }
+                    h2 { color: #555; margin-top: 30px; }
+                    .header { text-align: center; margin-bottom: 30px; }
+                    .date { color: #777; font-size: 14px; }
+                    .summary-box { 
+                        background: #f5f5f5; 
+                        border-left: 4px solid #2E7D32; 
+                        padding: 20px; 
+                        margin: 20px 0;
+                        border-radius: 4px;
+                    }
+                    .summary-item { 
+                        display: inline-block; 
+                        margin-right: 40px; 
+                        margin-bottom: 10px;
+                    }
+                    .summary-label { 
+                        font-size: 12px; 
+                        color: #777; 
+                        text-transform: uppercase;
+                    }
+                    .summary-value { 
+                        font-size: 24px; 
+                        font-weight: bold; 
+                        color: #2E7D32;
+                    }
+                    table { 
+                        width: 100%; 
+                        border-collapse: collapse; 
+                        margin-top: 15px;
+                    }
+                    th { 
+                        background: #2E7D32; 
+                        color: white; 
+                        padding: 12px; 
+                        text-align: left;
+                        font-size: 12px;
+                        text-transform: uppercase;
+                    }
+                    td { 
+                        padding: 12px; 
+                        border-bottom: 1px solid #ddd;
+                        font-size: 14px;
+                    }
+                    tr:nth-child(even) { background: #f9f9f9; }
+                    .footer { 
+                        margin-top: 40px; 
+                        text-align: center; 
+                        font-size: 12px; 
+                        color: #999;
+                        border-top: 1px solid #ddd;
+                        padding-top: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Gelato Kids - Admin Report</h1>
+                    <p class="date">Generated on ${today}</p>
+                </div>
+                
+                <div class="summary-box">
+                    <h2>Summary</h2>
+                    <div class="summary-item">
+                        <div class="summary-label">Total Tokens</div>
+                        <div class="summary-value">${summary.totalTokens || 0}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Completed</div>
+                        <div class="summary-value">${summary.completedTokens || 0}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Revenue</div>
+                        <div class="summary-value">MWK ${(summary.totalRevenue || 0).toLocaleString()}</div>
+                    </div>
+                </div>
+                
+                <h2>Activities Status</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Activity Name</th>
+                            <th>Capacity</th>
+                            <th>Occupancy %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${activityRows || '<tr><td colspan="3">No activities found</td></tr>'}
+                    </tbody>
+                </table>
+                
+                <h2>Staff Overview</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Zone</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${staffRows || '<tr><td colspan="3">No staff found</td></tr>'}
+                    </tbody>
+                </table>
+                
+                <h2>Recent Transactions</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Token Code</th>
+                            <th>Activity</th>
+                            <th>Status</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tokenRows || '<tr><td colspan="4">No recent transactions</td></tr>'}
+                    </tbody>
+                </table>
+                
+                <div class="footer">
+                    <p>Gelato Kids Activity Center - Administrative Report</p>
+                    <p>This report was generated automatically from the management system.</p>
+                </div>
+            </body>
+            </html>
+        `;
     };
 
     if (isLoading) {

@@ -16,6 +16,16 @@ export default function ConfirmPaymentScreen() {
     const [selectedProvider, setSelectedProvider] = useState('airtel');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [pollingInterval, setPollingInterval] = useState<ReturnType<typeof setInterval> | null>(null);
+
+    // Cleanup polling on unmount
+    useEffect(() => {
+        return () => {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+        };
+    }, [pollingInterval]);
     
     // Fetch activity detail on component mount
     useEffect(() => {
@@ -34,6 +44,80 @@ export default function ConfirmPaymentScreen() {
             </SafeAreaView>
         );
     }
+
+    // Poll for payment status
+    const pollPaymentStatus = (chargeId: string, guestUser: any) => {
+        const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+        let attempts = 0;
+        const maxAttempts = 60; // Poll for up to 5 minutes (60 * 5 seconds)
+
+        const interval = setInterval(async () => {
+            attempts++;
+            
+            try {
+                const response = await fetch(`${serverIp}/api/payment/status/${chargeId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    console.log(`[Payment Polling] Status: ${data.status}, Attempt: ${attempts}`);
+
+                    if (data.status === 'completed') {
+                        // Payment successful
+                        clearInterval(interval);
+                        setPollingInterval(null);
+                        setIsLoading(false);
+
+                        showToast('Payment successful! Token generated.', 'success');
+
+                        // If guest checkout created a user, update the store
+                        if (guestUser && !profile?.id) {
+                            setProfile({
+                                id: guestUser.id,
+                                username: guestUser.username,
+                                email: guestUser.email,
+                                phone: guestUser.phone,
+                                role: guestUser.role,
+                                avatar: 'https://picsum.photos/200',
+                                createdAt: new Date().toISOString()
+                            });
+                        }
+
+                        // Navigate to tokens screen
+                        setTimeout(() => {
+                            try {
+                                router.push('/(visitor-tabs)/myTokensScreen');
+                            } catch (error) {
+                                console.error('Navigation error:', error);
+                                router.back();
+                            }
+                        }, 1500);
+                    } else if (data.status === 'failed' || data.status === 'cancelled') {
+                        // Payment failed
+                        clearInterval(interval);
+                        setPollingInterval(null);
+                        setIsLoading(false);
+                        showToast('Payment failed. Please try again.');
+                    } else if (attempts >= maxAttempts) {
+                        // Timeout
+                        clearInterval(interval);
+                        setPollingInterval(null);
+                        setIsLoading(false);
+                        showToast('Payment verification timed out. Please check your tokens later.');
+                    }
+                }
+            } catch (error) {
+                console.error('[Payment Polling] Error:', error);
+                if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    setPollingInterval(null);
+                    setIsLoading(false);
+                    showToast('Payment verification timed out. Please check your tokens later.');
+                }
+            }
+        }, 5000); // Poll every 5 seconds
+
+        setPollingInterval(interval);
+    };
 
     const handlePayment = async () => {
         if (!phoneNumber) {
@@ -62,37 +146,44 @@ export default function ConfirmPaymentScreen() {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                showToast('Payment successful! Token generated.', 'success');
-                
-                // If guest checkout created a user, update the store
-                if (data.user && !profile?.id) {
-                    setProfile({
-                        id: data.user.id,
-                        username: data.user.username,
-                        email: data.user.email,
-                        phone: data.user.phone,
-                        role: data.user.role,
-                        avatar: 'https://picsum.photos/200',
-                        createdAt: new Date().toISOString()
-                    });
-                }
-                
-                // Navigate to tokens screen
-                setTimeout(() => {
-                    try {
-                        router.push('/(visitor-tabs)/myTokensScreen');
-                    } catch (error) {
-                        console.error('Navigation error:', error);
-                        router.back(); // Fallback to go back
+                if (data.pending && data.chargeId) {
+                    // PayChangu payment initiated - start polling
+                    showToast(data.message || 'Payment initiated. Please check your phone to authorize.', 'success');
+                    pollPaymentStatus(data.chargeId, data.user);
+                } else {
+                    // Immediate success (fallback)
+                    showToast('Payment successful! Token generated.', 'success');
+                    
+                    // If guest checkout created a user, update the store
+                    if (data.user && !profile?.id) {
+                        setProfile({
+                            id: data.user.id,
+                            username: data.user.username,
+                            email: data.user.email,
+                            phone: data.user.phone,
+                            role: data.user.role,
+                            avatar: 'https://picsum.photos/200',
+                            createdAt: new Date().toISOString()
+                        });
                     }
-                }, 2000);
+                    
+                    // Navigate to tokens screen
+                    setTimeout(() => {
+                        try {
+                            router.push('/(visitor-tabs)/myTokensScreen');
+                        } catch (error) {
+                            console.error('Navigation error:', error);
+                            router.back(); // Fallback to go back
+                        }
+                    }, 2000);
+                }
             } else {
                 showToast(data.message || 'Payment failed');
+                setIsLoading(false);
             }
         } catch (error) {
             console.error('Payment error:', error);
             showToast('Network error. Please try again.');
-        } finally {
             setIsLoading(false);
         }
     };

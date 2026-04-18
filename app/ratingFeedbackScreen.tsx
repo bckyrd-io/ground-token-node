@@ -100,12 +100,11 @@ export default function RatingFeedbackScreen() {
                 <View style={styles.branding}>
                     <View style={styles.logoCircle}>
                         <Image
-                            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDFWi_rUi5LE9uumzouWe5BSLOq7YWet6EmhqVssnUEXrixRcrzXBw0mgHvExlaSPBmmGJMQ2Cfo-QdgTdGAFQANoVL-1piWU1pP_HJA_2QI3R0tNqwS31Smiuzq88_7edODDdZg-z6xgJh9X6Ii6at_Y9E6-xUzAlPxwj6Xfb_P1Kp9eXzpO6Q-71n4NupYQ7vZl2I-tqmtKqbMiUV9Y_DuDz22TAZIbTiTkJ1RkJQEr2hil86ZgdF3bN6MztOmdfLgVs2s1fwE1KC' }}
+                            source={'../assets/images/icon.png' }
                             style={styles.logoImage}
                             contentFit="cover"
                         />
                     </View>
-                    <Text style={styles.brandName}>Gelato Kids</Text>
                     <Text style={styles.brandTagline}>We hope you had a blast today!</Text>
                 </View>
 
@@ -169,7 +168,7 @@ export default function RatingFeedbackScreen() {
                     disabled={isLoading}
                 >
                     <Text style={styles.submitText}>
-                        {isLoading ? 'Submitting...' : 'Submit Feedback'}
+                        {isLoading ? 'Submitting...' : 'Submit'}
                     </Text>
                     <MaterialIcons name="send" size={20} color={COLORS.white} />
                 </TouchableOpacity>

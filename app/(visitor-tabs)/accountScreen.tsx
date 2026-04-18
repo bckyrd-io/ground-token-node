@@ -119,8 +119,7 @@ export default function AccountScreen() {
                 </View>
 
                 {/* Account Details Form */}
-                <Text style={styles.sectionTitle}>Account Details</Text>
-
+              
                 <View style={styles.fieldGroup}>
                     <View style={styles.inputWrapper}>
                         <MaterialIcons 
@@ -236,7 +235,7 @@ const styles = StyleSheet.create({
     profileHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingTop: 24,
+        paddingTop: 5,
     },
     avatarContainer: {
         width: 80,

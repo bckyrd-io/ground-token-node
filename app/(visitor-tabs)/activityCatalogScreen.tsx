@@ -9,13 +9,16 @@ export default function ActivityCatalogScreen() {
     const router = useRouter();
     const { activities, fetchActivities } = useStore();
 
+    // Filter only play activities for the catalog
+    const playActivities = activities.filter(activity => activity.type === 'play');
+
     useEffect(() => {
         fetchActivities();
     }, [fetchActivities]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-            {activities.map((activity) => (
+            {playActivities.map((activity) => (
                 <TouchableOpacity
                     key={activity.id}
                     style={styles.card}

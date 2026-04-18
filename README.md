@@ -30,8 +30,7 @@ You can start developing by editing the files inside the **app** directory. This
 When you're ready, run:
 
 ```bash
-npm run reset-project 
-finally the pages for visitor eg mytokens an account screen. are not properly in relationshiped. for example the token tab shows all the tokens booked not only the token booked by a particular visitor which is wrong. and also the account screen eg if updated it keeps showing that same old user . so its like data is getting intertwined
+npm run reset-project
 ```
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.

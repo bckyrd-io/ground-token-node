@@ -1,43 +1,145 @@
 import { COLORS } from '@/constants/theme';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    Animated,
+    Dimensions,
+    FlatList,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    ViewToken,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
+const SLIDES = [
+    {
+        id: '1',
+        image: require('../assets/images/gelato1.jpg'),
+        title: 'Token Access Control',
+        description: 'System for Gelato play area and food.',
+    },
+    {
+        id: '2',
+        image: require('../assets/images/gelato2.jpg'),
+        title: 'Fun Play Zones',
+        description: 'Safe and exciting play areas designed for kids of all ages.',
+    },
+    {
+        id: '3',
+        image: require('../assets/images/gelato3.jpg'),
+        title: 'Sweet Treats',
+        description: 'A variety of flavors and toppings to satisfy every craving.',
+    },
+    {
+        id: '4',
+        image: require('../assets/images/gelato4.jpg'),
+        title: 'Family Friendly',
+        description: 'The perfect destination for family fun and memorable moments.',
+    },
+];
+
 export default function OnboardingScreen() {
     const router = useRouter();
+    const [activeIndex, setActiveIndex] = useState(0);
+    const flatListRef = useRef<FlatList>(null);
+    const fadeAnim = useRef(new Animated.Value(1)).current;
+
+    // Auto-slide every 4 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const nextIndex = (activeIndex + 1) % SLIDES.length;
+            flatListRef.current?.scrollToIndex({
+                index: nextIndex,
+                animated: true,
+            });
+        }, 4000);
+
+        return () => clearInterval(interval);
+    }, [activeIndex]);
+
+    const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+        if (viewableItems.length > 0) {
+            setActiveIndex(viewableItems[0].index ?? 0);
+        }
+    }).current;
+
+    const viewabilityConfig = useRef({
+        viewAreaCoveragePercentThreshold: 50,
+    }).current;
+
+    const renderItem = ({ item }: { item: typeof SLIDES[0] }) => (
+        <View style={styles.slideContainer}>
+            <View style={styles.imageCard}>
+                <Image
+                    source={item.image}
+                    style={styles.heroImage}
+                    contentFit="cover"
+                />
+            </View>
+        </View>
+    );
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 {/* Header Branding */}
                 <View style={styles.header}>
-                    <Text style={styles.brandName}>Gelato Kids</Text>
+                    <Text style={styles.brandName}>Gelato Carnival</Text>
                     <Text style={styles.brandTagline}>Safe & Fun Play Access</Text>
                 </View>
 
                 {/* Carousel Section */}
                 <View style={styles.carouselSection}>
-                    <View style={styles.imageCard}>
-                        <Image
-                            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB-EQTv8gx-hbSbKHSpQsW6rzQ3ZR-jTiO0E12I4FnshOYqFDfM9RGXoD32soKCpA7o2wMt0-KPwHTKfUaCtErPWWXu_dE3WdAsuRpbVjy_5uvgCOhuHjep0FExKS_l7HRC3mMqi9QWVwB9k8qt5Wzjw_XfUSMBGukXuhUIyJO3JOsEOqT-nYKXVGtnqkXLaUbZLmxTnuM3cdbKH-E5V7h72643HcU9rK5lft-2Y97pJzAEHkh54wxwUqZmi3ylqri7kgsIFrBXf41A' }}
-                            style={styles.heroImage}
-                            contentFit="cover"
-                        />
-                    </View>
-                    <Text style={styles.slideTitle}>Bouncy Adventures</Text>
-                    <Text style={styles.slideDescription}>
-                        Jump into excitement with our high-safety trampoline zones.
-                    </Text>
+                    <FlatList
+                        ref={flatListRef}
+                        data={SLIDES}
+                        renderItem={renderItem}
+                        keyExtractor={(item) => item.id}
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onViewableItemsChanged={onViewableItemsChanged}
+                        viewabilityConfig={viewabilityConfig}
+                        snapToAlignment="center"
+                        decelerationRate="fast"
+                        snapToInterval={width - 48 + 16}
+                        contentContainerStyle={styles.flatListContent}
+                        ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    />
+
+                    <Animated.Text style={[styles.slideTitle, { opacity: fadeAnim }]}>
+                        {SLIDES[activeIndex].title}
+                    </Animated.Text>
+                    <Animated.Text style={[styles.slideDescription, { opacity: fadeAnim }]}>
+                        {SLIDES[activeIndex].description}
+                    </Animated.Text>
 
                     {/* Carousel Indicators */}
                     <View style={styles.indicators}>
-                        <View style={[styles.dot, styles.dotActive]} />
-                        <View style={styles.dot} />
-                        <View style={styles.dot} />
+                        {SLIDES.map((_, index) => (
+                            <TouchableOpacity
+                                key={index}
+                                onPress={() => {
+                                    flatListRef.current?.scrollToIndex({
+                                        index,
+                                        animated: true,
+                                    });
+                                }}
+                            >
+                                <View
+                                    style={[
+                                        styles.dot,
+                                        index === activeIndex && styles.dotActive,
+                                    ]}
+                                />
+                            </TouchableOpacity>
+                        ))}
                     </View>
                 </View>
 
@@ -48,7 +150,7 @@ export default function OnboardingScreen() {
                         activeOpacity={0.9}
                         onPress={() => router.push('/(visitor-tabs)/activityCatalogScreen')}
                     >
-                        <Text style={styles.primaryButtonText}>Browse Play Zones</Text>
+                        <Text style={styles.primaryButtonText}>Browse</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -89,6 +191,7 @@ const styles = StyleSheet.create({
         color: COLORS.slate500,
         fontWeight: '500',
         marginTop: 8,
+        marginBottom: 16,
     },
     carouselSection: {
         flex: 1,
@@ -96,8 +199,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    imageCard: {
+    flatListContent: {
+        paddingHorizontal: 0,
+    },
+    separator: {
+        width: 16,
+    },
+    slideContainer: {
         width: width - 48,
+    },
+    imageCard: {
+        width: '100%',
         aspectRatio: 4 / 3,
         borderRadius: 24,
         overflow: 'hidden',
@@ -111,7 +223,7 @@ const styles = StyleSheet.create({
         fontSize: 22,
         fontWeight: '700',
         color: COLORS.slate900,
-        marginTop: 16,
+        marginTop: 6,
     },
     slideDescription: {
         fontSize: 14,
@@ -146,6 +258,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.primary,
         paddingVertical: 16,
         borderRadius: 12,
+        marginTop: 16,
         alignItems: 'center',
     },
     primaryButtonText: {

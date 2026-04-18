@@ -1,5 +1,5 @@
 import { COLORS } from '@/constants/theme';
-import { initializeNotifications, showImmediateNotification } from '@/utils/notifications';
+import { showImmediateNotification } from '@/utils/notifications';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,11 +16,6 @@ export default function PlayTimerScreen() {
     const [isFinished, setIsFinished] = useState(false);
 
     const token = tokens.find(t => t.id.toString() === tokenId);
-
-    // Initialize notifications on mount
-    useEffect(() => {
-        initializeNotifications();
-    }, []);
 
     /*
      * TODO: Replace this test timer with proper session duration from backend

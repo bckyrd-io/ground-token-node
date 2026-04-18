@@ -1,6 +1,7 @@
+import { initializeNotifications } from '@/utils/notifications';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStore } from '../store';
 
@@ -66,6 +67,11 @@ export default function VisitorTabsLayout() {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const logout = useStore((state) => state.logout);
 
+    // Initialize notifications when visitor tabs are loaded
+    useEffect(() => {
+        initializeNotifications();
+    }, []);
+
     const handleLogoutPress = () => {
         setShowMenu(false);
         setShowConfirmModal(true);
@@ -85,7 +91,7 @@ export default function VisitorTabsLayout() {
         <>
             <Tabs
                 screenOptions={{
-                    headerStyle: { backgroundColor: '#2E7D32' },
+                    headerStyle: { backgroundColor: '#B4353D' },
                     headerTintColor: '#fff',
                     headerTitleStyle: { fontWeight: '700', fontSize: 20 },
                     headerTitleAlign: 'left',
@@ -98,7 +104,7 @@ export default function VisitorTabsLayout() {
                             <MaterialIcons name="more-vert" size={24} color="white" />
                         </TouchableOpacity>
                     ),
-                    tabBarActiveTintColor: '#2E7D32',
+                    tabBarActiveTintColor: '#B4353D',
                     tabBarInactiveTintColor: '#94a3b8',
                     tabBarStyle: {
                         backgroundColor: '#ffffff',
@@ -117,17 +123,28 @@ export default function VisitorTabsLayout() {
                 <Tabs.Screen
                     name="activityCatalogScreen"
                     options={{
-                        title: 'Catalog',
-                        tabBarLabel: 'Explore',
+                        title: 'Gelato',
+                        tabBarLabel: 'Catalog',
                         tabBarIcon: ({ color, size }) => (
                             <MaterialIcons name="home" size={size} color={color} />
+                        ),
+                    }}
+                />
+
+                <Tabs.Screen
+                    name="orderFoodScreen"
+                    options={{
+                        title: 'Gelato',
+                        tabBarLabel: 'Food',
+                        tabBarIcon: ({ color, size }) => (
+                            <MaterialIcons name="restaurant" size={size} color={color} />
                         ),
                     }}
                 />
                 <Tabs.Screen
                     name="myTokensScreen"
                     options={{
-                        title: 'My Tokens',
+                        title: 'Gelato',
                         tabBarLabel: 'Tokens',
                         tabBarIcon: ({ color, size }) => (
                             <MaterialIcons name="bookmark-border" size={size} color={color} />
@@ -137,7 +154,7 @@ export default function VisitorTabsLayout() {
                 <Tabs.Screen
                     name="accountScreen"
                     options={{
-                        title: 'My Account',
+                        title: 'Gelato',
                         tabBarLabel: 'Account',
                         tabBarIcon: ({ color, size }) => (
                             <MaterialIcons name="person" size={size} color={color} />

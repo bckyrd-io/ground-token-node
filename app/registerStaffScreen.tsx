@@ -67,7 +67,7 @@ export default function RegisterStaffScreen() {
             </View>
 
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-                <Text style={styles.sectionTitle}>Staff Information</Text>
+                {/* <Text style={styles.sectionTitle}>Staff Information</Text> */}
 
                 {/* Username */}
                 <View style={styles.fieldGroup}>
@@ -104,13 +104,13 @@ export default function RegisterStaffScreen() {
                     />
                 </View>
 
-                {/* Role Selection */}
+                {/* Role Selection
                 <View style={styles.fieldGroup}>
                     <View style={styles.selectWrapper}>
                         <Text style={styles.selectText}>Staff Role</Text>
                         <MaterialIcons name="expand-more" size={24} color={COLORS.slate500} />
                     </View>
-                </View>
+                </View> */}
 
                 {/* Password */}
                 <View style={styles.fieldGroup}>
@@ -142,7 +142,7 @@ export default function RegisterStaffScreen() {
                     disabled={isLoading}
                 >
                     <Text style={styles.submitText}>
-                        {isLoading ? 'Registering...' : 'Register & Send Invite'}
+                        {isLoading ? 'Registering...' : 'Submit'}
                     </Text>
                     <MaterialIcons name="send" size={20} color={COLORS.white} />
                 </TouchableOpacity>

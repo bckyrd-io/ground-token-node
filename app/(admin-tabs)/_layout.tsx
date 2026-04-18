@@ -85,7 +85,7 @@ export default function AdminTabsLayout() {
         <>
             <Tabs
                 screenOptions={{
-                    headerStyle: { backgroundColor: '#2E7D32' },
+                    headerStyle: { backgroundColor: '#B4353D' },
                     headerTintColor: '#fff',
                     headerTitleStyle: { fontWeight: '700', fontSize: 20 },
                     headerTitleAlign: 'left',
@@ -98,7 +98,7 @@ export default function AdminTabsLayout() {
                             <MaterialIcons name="more-vert" size={24} color="white" />
                         </TouchableOpacity>
                     ),
-                    tabBarActiveTintColor: '#2E7D32',
+                    tabBarActiveTintColor: '#B4353D',
                     tabBarInactiveTintColor: '#94a3b8',
                     tabBarStyle: {
                         backgroundColor: '#ffffff',
@@ -117,7 +117,7 @@ export default function AdminTabsLayout() {
                 <Tabs.Screen
                     name="adminDashboardScreen"
                     options={{
-                        title: 'Admin Dashboard',
+                        title: 'Gelato | admin',
                         tabBarLabel: 'Dashboard',
                         tabBarIcon: ({ color, size }) => (
                             <MaterialIcons name="dashboard" size={size} color={color} />
@@ -127,7 +127,7 @@ export default function AdminTabsLayout() {
                 <Tabs.Screen
                     name="manageActivitiesScreen"
                     options={{
-                        title: 'Manage Activities',
+                        title: 'Gelato | admin',
                         tabBarLabel: 'Activities',
                         tabBarIcon: ({ color, size }) => (
                             <MaterialIcons name="directions-run" size={size} color={color} />
@@ -137,7 +137,7 @@ export default function AdminTabsLayout() {
                 <Tabs.Screen
                     name="staffManagementScreen"
                     options={{
-                        title: 'Staff Management',
+                        title: 'Gelato | admin',
                         tabBarLabel: 'Staff',
                         tabBarIcon: ({ color, size }) => (
                             <MaterialIcons name="group" size={size} color={color} />

@@ -144,7 +144,7 @@ export default function LoginScreen() {
 
             {/* Footer */}
             <View style={styles.footer}>
-                <Text style={styles.footerText}>© 2024 Gelato Kids. All rights reserved.</Text>
+                <Text style={styles.footerText}>© 2026 Gelato Kids. All rights reserved.</Text>
             </View>
         </SafeAreaView>
     );

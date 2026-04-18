@@ -85,7 +85,7 @@ export default function StaffTabsLayout() {
         <>
             <Tabs
                 screenOptions={{
-                    headerStyle: { backgroundColor: '#2E7D32' },
+                    headerStyle: { backgroundColor: '#B4353D' },
                     headerTintColor: '#fff',
                     headerTitleStyle: { fontWeight: '700', fontSize: 20 },
                     headerTitleAlign: 'left',
@@ -98,7 +98,7 @@ export default function StaffTabsLayout() {
                             <MaterialIcons name="more-vert" size={24} color="white" />
                         </TouchableOpacity>
                     ),
-                    tabBarActiveTintColor: '#2E7D32',
+                    tabBarActiveTintColor: '#B4353D',
                     tabBarInactiveTintColor: '#94a3b8',
                     tabBarStyle: {
                         backgroundColor: '#ffffff',
@@ -118,7 +118,7 @@ export default function StaffTabsLayout() {
                 <Tabs.Screen
                     name="capacityControlScreen"
                     options={{
-                        title: 'Capacity Control',
+                        title: 'Gelato | staff',
                         tabBarLabel: 'Capacity',
                         tabBarIcon: ({ color, size }) => (
                             <MaterialIcons name="analytics" size={size} color={color} />
@@ -128,7 +128,7 @@ export default function StaffTabsLayout() {
                 <Tabs.Screen
                     name="staffScannerScreen"
                     options={{
-                        title: 'Scan QR Token',
+                        title: 'Gelato | staff',
                         tabBarLabel: 'Scanner',
                         tabBarIcon: ({ color, size }) => (
                             <MaterialIcons name="qr-code-scanner" size={size} color={color} />

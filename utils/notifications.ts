@@ -1,146 +1,181 @@
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
-// Configure notification handler to enable sound
+// Configure how notifications behave when app is in foreground
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
+        shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
     }),
 });
 
 /**
- * Initialize notification channels (Android only)
- */
-export async function initializeNotifications() {
-    if (Platform.OS === 'android') {
-        // Create notification channel with high importance and sound
-        await Notifications.setNotificationChannelAsync('queue-alerts', {
-            name: 'Queue Alerts',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            sound: 'default',
-        });
-
-        await Notifications.setNotificationChannelAsync('timer-alerts', {
-            name: 'Timer Alerts',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            sound: 'default',
-        });
-    }
-}
-
-/**
- * Request notification permissions
+ * Request notification permissions from the user
+ * Required for Android 13+ and iOS
  */
 export async function requestNotificationPermissions(): Promise<boolean> {
-    if (!Device.isDevice) {
-        console.log('Notifications require a physical device');
+    try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+
+        if (finalStatus !== 'granted') {
+            console.log('Failed to get notification permissions!');
+            return false;
+        }
+
+        console.log('Notification permissions granted!');
+        return true;
+    } catch (error) {
+        console.error('Error requesting notification permissions:', error);
         return false;
     }
-
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-    }
-
-    return finalStatus === 'granted';
 }
 
 /**
- * Schedule a local notification
+ * Create a notification channel for Android
+ * Required for Android 8.0+ (API level 26+)
+ */
+export async function createNotificationChannel(
+    channelId: string,
+    channelName: string,
+    importance: Notifications.AndroidNotificationImportance = Notifications.AndroidImportance.DEFAULT
+): Promise<void> {
+    if (Platform.OS === 'android') {
+        try {
+            await Notifications.setNotificationChannelAsync(channelId, {
+                name: channelName,
+                importance: importance,
+                vibrationPattern: [0, 250, 250, 250],
+                lightColor: '#2E7D32',
+                sound: 'default',
+            });
+            console.log(`Notification channel ${channelId} created`);
+        } catch (error) {
+            console.error('Error creating notification channel:', error);
+        }
+    }
+}
+
+/**
+ * Show an immediate local notification
+ * @param title - Notification title
+ * @param body - Notification body text
+ * @param data - Additional data to attach to the notification
+ * @param channelId - Android notification channel ID
+ */
+export async function showImmediateNotification(
+    title: string,
+    body: string,
+    data: Record<string, any> = {},
+    channelId: string = 'default'
+): Promise<string | undefined> {
+    try {
+        const notificationId = await Notifications.scheduleNotificationAsync({
+            content: {
+                title,
+                body,
+                data,
+                sound: 'default',
+                priority: Notifications.AndroidNotificationPriority.HIGH,
+            },
+            trigger: null, // null means show immediately
+        });
+        console.log('Immediate notification scheduled:', notificationId);
+        return notificationId;
+    } catch (error) {
+        console.error('Error showing immediate notification:', error);
+        return undefined;
+    }
+}
+
+/**
+ * Schedule a notification to fire after a specified number of seconds
+ * @param title - Notification title
+ * @param body - Notification body text
+ * @param seconds - Number of seconds from now to fire the notification
+ * @param data - Additional data to attach to the notification
+ * @param channelId - Android notification channel ID
  */
 export async function scheduleNotification(
     title: string,
     body: string,
     seconds: number,
-    data?: Record<string, any>,
+    data: Record<string, any> = {},
     channelId: string = 'default'
-): Promise<string | null> {
+): Promise<string | undefined> {
     try {
-        const hasPermission = await requestNotificationPermissions();
-        if (!hasPermission) {
-            console.log('Notification permissions not granted');
-            return null;
-        }
-
-        await initializeNotifications();
-
-        const identifier = await Notifications.scheduleNotificationAsync({
+        const notificationId = await Notifications.scheduleNotificationAsync({
             content: {
                 title,
                 body,
+                data,
                 sound: 'default',
-                data: data || {},
+                priority: Notifications.AndroidNotificationPriority.HIGH,
             },
             trigger: {
                 seconds,
                 channelId,
-            } as Notifications.NotificationTriggerInput,
+            },
         });
-
-        return identifier;
+        console.log('Notification scheduled:', notificationId);
+        return notificationId;
     } catch (error) {
-        console.error('Failed to schedule notification:', error);
-        return null;
+        console.error('Error scheduling notification:', error);
+        return undefined;
     }
 }
 
 /**
- * Schedule immediate notification (for testing or instant alerts)
- */
-export async function showImmediateNotification(
-    title: string,
-    body: string,
-    data?: Record<string, any>,
-    channelId: string = 'default'
-): Promise<string | null> {
-    return scheduleNotification(title, body, 1, data, channelId);
-}
-
-/**
  * Cancel a scheduled notification
+ * @param notificationId - ID of the notification to cancel
  */
-export async function cancelNotification(identifier: string): Promise<void> {
-    await Notifications.cancelScheduledNotificationAsync(identifier);
+export async function cancelScheduledNotification(notificationId: string): Promise<void> {
+    try {
+        await Notifications.cancelScheduledNotificationAsync(notificationId);
+        console.log('Notification cancelled:', notificationId);
+    } catch (error) {
+        console.error('Error cancelling notification:', error);
+    }
 }
 
 /**
  * Cancel all scheduled notifications
  */
-export async function cancelAllNotifications(): Promise<void> {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+export async function cancelAllScheduledNotifications(): Promise<void> {
+    try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        console.log('All scheduled notifications cancelled');
+    } catch (error) {
+        console.error('Error cancelling all notifications:', error);
+    }
 }
 
 /**
- * Get all scheduled notifications
+ * Initialize notification system
+ * Call this on app startup for visitors
  */
-export async function getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
-    return await Notifications.getAllScheduledNotificationsAsync();
-}
+export async function initializeNotifications(): Promise<void> {
+    try {
+        // Request permissions
+        const hasPermission = await requestNotificationPermissions();
+        
+        if (!hasPermission) {
+            console.log('Notification permissions not granted');
+            return;
+        }
 
-// Listen for notification responses
-export function addNotificationResponseListener(
-    callback: (response: Notifications.NotificationResponse) => void
-): Notifications.Subscription {
-    return Notifications.addNotificationResponseReceivedListener(callback);
-}
+        // Create notification channels for Android
+        await createNotificationChannel('timer-alerts', 'Timer Alerts', Notifications.AndroidImportance.HIGH);
+        await createNotificationChannel('queue-alerts', 'Queue Alerts', Notifications.AndroidImportance.DEFAULT);
 
-// Listen for incoming notifications
-export function addNotificationReceivedListener(
-    callback: (notification: Notifications.Notification) => void
-): Notifications.Subscription {
-    return Notifications.addNotificationReceivedListener(callback);
-}
-
-// Remove notification listeners
-export function removeNotificationListener(subscription: Notifications.Subscription): void {
-    subscription.remove();
+        console.log('Notification system initialized');
+    } catch (error) {
+        console.error('Error initializing notifications:', error);
+    }
 }

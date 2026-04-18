@@ -26,14 +26,39 @@ export default function StaffScannerScreen() {
         if (scanned) return;
         setScanned(true);
 
-        Alert.alert('QR Code Scanned', `Type: ${type}\nData: ${data}`, [
-            {
-                text: 'OK',
-                onPress: () => {
-                    router.push('/validationResultScreen' as any);
+        // Parse QR code data - assuming it contains token code and type info
+        // Format could be: "TOKEN:ABC123" or JSON with token details
+        // For now, we'll simulate the validation by checking if data contains token info
+        const isFoodToken = data.includes('FOOD') || data.includes('food');
+        const isPlayToken = data.includes('PLAY') || data.includes('play') || !isFoodToken;
+
+        // Extract token code from data (remove prefixes if present)
+        let tokenCode = data;
+        if (data.includes(':')) {
+            tokenCode = data.split(':')[1];
+        }
+
+        if (isFoodToken) {
+            Alert.alert('Food Order Confirmed', `Token: ${tokenCode}\n\nThis is a food order. The visitor can now leave a review.`, [
+                {
+                    text: 'Continue to Review',
+                    onPress: () => {
+                        // Navigate to rating screen for food tokens
+                        router.push({ pathname: '/ratingFeedbackScreen', params: { tokenCode } } as any);
+                    },
                 },
-            },
-        ]);
+            ]);
+        } else {
+            Alert.alert('Token Validated', `Token: ${tokenCode}\n\nReady for session.`, [
+                {
+                    text: 'Start Session',
+                    onPress: () => {
+                        // Navigate to validation result for play tokens
+                        router.push('/capacityControlScreen' as any);
+                    },
+                },
+            ]);
+        }
     };
 
     if (!permission) {

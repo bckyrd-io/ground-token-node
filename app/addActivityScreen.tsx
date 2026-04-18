@@ -23,13 +23,15 @@ export default function AddActivityScreen() {
         capacity: string;
         image: string;
         safetyRules: string[];
+        type: 'play' | 'food';
     }>({
         name: '',
         description: '',
         price: '',
         capacity: '',
         image: '',
-        safetyRules: ['']
+        safetyRules: [''],
+        type: 'play'
     });
 
     useEffect(() => {
@@ -61,6 +63,7 @@ export default function AddActivityScreen() {
             formData.append('description', activity.description);
             formData.append('price', activity.price);
             formData.append('capacity', activity.capacity);
+            formData.append('type', activity.type);
             formData.append('safetyRules', JSON.stringify(activity.safetyRules));
             formData.append('staff', JSON.stringify(selectedStaff));
             
@@ -156,14 +159,35 @@ export default function AddActivityScreen() {
 
                 {/* Activity Name */}
                 <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Activity Name</Text>
-                    <TextInput 
-                        style={styles.input} 
-                        placeholder="Enter activity name"
+                    <Text style={styles.label}>{activity.type === 'food' ? 'Food Item Name' : 'Activity Name'}</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder={activity.type === 'food' ? 'Enter food item name' : 'Enter activity name'}
                         value={activity.name}
                         onChangeText={(text) => setActivity({...activity, name: text})}
-                        placeholderTextColor={COLORS.slate400} 
+                        placeholderTextColor={COLORS.slate400}
                     />
+                </View>
+
+                {/* Activity Type */}
+                <View style={styles.fieldGroup}>
+                    <Text style={styles.label}>Activity Type</Text>
+                    <View style={styles.typeSelector}>
+                        <TouchableOpacity
+                            style={[styles.typeButton, activity.type === 'play' && styles.typeButtonActive]}
+                            onPress={() => setActivity({...activity, type: 'play'})}
+                        >
+                            <MaterialIcons name="sports-basketball" size={20} color={activity.type === 'play' ? COLORS.white : COLORS.slate600} />
+                            <Text style={[styles.typeButtonText, activity.type === 'play' && styles.typeButtonTextActive]}>Play</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.typeButton, activity.type === 'food' && styles.typeButtonActive]}
+                            onPress={() => setActivity({...activity, type: 'food'})}
+                        >
+                            <MaterialIcons name="restaurant" size={20} color={activity.type === 'food' ? COLORS.white : COLORS.slate600} />
+                            <Text style={[styles.typeButtonText, activity.type === 'food' && styles.typeButtonTextActive]}>Food</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Description */}
@@ -197,7 +221,7 @@ export default function AddActivityScreen() {
                     </View>
                     
                     <View style={[styles.fieldGroup, { flex: 1, marginLeft: 16 }]}>
-                        <Text style={styles.label}>Capacity</Text>
+                        <Text style={styles.label}>Number</Text>
                         <View style={styles.suffixInput}>
                             <TextInput 
                                 style={styles.inputWithoutBorder}
@@ -334,7 +358,7 @@ export default function AddActivityScreen() {
                     disabled={isLoading}
                 >
                     <Text style={styles.saveButtonText}>
-                        {isLoading ? 'Adding Activity...' : 'Add Activity'}
+                        {isLoading ? 'Adding Activity...' : 'Submit'}
                     </Text>
                 </TouchableOpacity>
             </ScrollView>
@@ -600,6 +624,35 @@ const styles = StyleSheet.create({
     },
     removeRuleButton: {
         padding: 8,
+    },
+    typeSelector: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    typeButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: COLORS.slate300,
+        backgroundColor: COLORS.white,
+    },
+    typeButtonActive: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    typeButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.slate600,
+    },
+    typeButtonTextActive: {
+        color: COLORS.white,
     },
     saveButton: {
         backgroundColor: COLORS.primary,

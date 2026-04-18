@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "groun-token",
-    "slug": "Gerato Token",
-    "version": "1.0.0",
+    "name": "token",
+    "slug": "Gerato Access",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "groundtoken",
+    "scheme": "token",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -21,11 +21,15 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "SCHEDULE_EXACT_ALARM"
       ],
+
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.token"
     },
     "web": {
       "output": "static",
@@ -34,13 +38,6 @@
     "plugins": [
       "expo-router",
       "expo-notifications",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Camera access is required to scan QR codes for token validation",
-          "recordAudioAndroid": false
-        }
-      ],
       [
         "expo-splash-screen",
         {
@@ -56,7 +53,7 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": false
+      "reactCompiler": true
     }
   }
 }

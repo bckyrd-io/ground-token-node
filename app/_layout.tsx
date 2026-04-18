@@ -22,7 +22,6 @@ export default function RootLayout() {
                 <Stack.Screen name="activityDetailScreen" />
                 <Stack.Screen name="confirmPaymentScreen" />
                 <Stack.Screen name="playTimerScreen" />
-                <Stack.Screen name="validationResultScreen" />
                 <Stack.Screen name="ratingFeedbackScreen" />
                 <Stack.Screen name="registerStaffScreen" />
                 <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />

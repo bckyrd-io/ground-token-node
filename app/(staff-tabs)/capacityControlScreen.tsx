@@ -1,10 +1,11 @@
 import { COLORS } from '@/constants/theme';
-import { initializeNotifications, showImmediateNotification } from '@/utils/notifications';
+// // import { initializeNotifications, showImmediateNotification } from '@/utils/notifications';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useStore } from '../store';
+import Toast from '../toast';
 
 interface Token {
     id: string;
@@ -32,9 +33,9 @@ export default function CapacityControlScreen() {
     const [loading, setLoading] = useState(true);
     const previousQueueLengthRef = useRef(0);
 
-    useEffect(() => {
-        initializeNotifications();
-    }, []);
+    // useEffect(() => {
+    //     // initializeNotifications(); // Commented out
+    // }, []);
 
     useEffect(() => {
         if (profile?.id) {
@@ -44,6 +45,14 @@ export default function CapacityControlScreen() {
         const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
         return () => clearInterval(interval);
     }, [profile?.id, fetchStaffActivity]);
+
+    // Sync isOpen state from staffActivity when it loads
+    useEffect(() => {
+        if (staffActivity?.isCapacityControlOpen !== undefined) {
+            // Convert to boolean (MySQL returns 0/1)
+            setIsOpen(Boolean(staffActivity.isCapacityControlOpen));
+        }
+    }, [staffActivity?.isCapacityControlOpen]);
 
     const fetchData = async () => {
         try {
@@ -64,13 +73,16 @@ export default function CapacityControlScreen() {
                 const queueTokens = activityTokens.filter((token: Token) => token.status === 'queue');
                 
                 // If someone moved to first position in queue, notify staff
+                // Note: Notifications disabled for Expo Go testing
                 if (queueTokens.length > 0 && previousQueueLengthRef.current === 0) {
-                    await showImmediateNotification(
-                        'New Visitor in Queue',
-                        `Token #${queueTokens[0].code} is now first in line for ${staffActivity?.name}`,
-                        { tokenId: queueTokens[0].id, type: 'queue_alert' },
-                        'queue-alerts'
-                    );
+                    // Temporarily disabled for Expo Go testing
+                    Toast.show({
+                        type: 'info',
+                        text1: 'Queue Update',
+                        text2: `Token #${queueTokens[0].code} is now first in line for ${staffActivity?.name}`,
+                        position: 'top',
+                        visibilityTime: 3000,
+                    });
                 }
                 
                 previousQueueLengthRef.current = queueTokens.length;
@@ -242,34 +254,43 @@ export default function CapacityControlScreen() {
                 ) : (
                     allVisitorTokens.map((token) => {
                         const isQueue = token.status === 'queue';
+                        const isFood = token.activityType === 'food';
                         const timeRemaining = !isQueue ? getSessionTimeRemaining(token) : null;
-                        
+
+                        // Food uses orange colors, play uses green colors
+                        const iconBgColor = isQueue
+                            ? (isFood ? 'rgba(249,115,22,0.1)' : 'rgba(255,152,0,0.1)')
+                            : (isFood ? 'rgba(249,115,22,0.1)' : 'rgba(46,125,50,0.1)');
+                        const iconColor = isQueue
+                            ? (isFood ? '#f97316' : COLORS.orange600)
+                            : (isFood ? '#f97316' : COLORS.primary);
+                        const badgeBgColor = isQueue
+                            ? (isFood ? 'rgba(249,115,22,0.1)' : COLORS.orange100)
+                            : (isFood ? 'rgba(249,115,22,0.1)' : COLORS.green100);
+                        const badgeTextColor = isQueue
+                            ? (isFood ? '#c2410c' : COLORS.orange700)
+                            : (isFood ? '#c2410c' : COLORS.green700);
+
                         return (
                             <View key={token.id} style={styles.sessionCard}>
                                 <View style={styles.sessionLeft}>
-                                    <View style={[
-                                        styles.sessionIcon, 
-                                        { backgroundColor: isQueue ? 'rgba(255,152,0,0.1)' : 'rgba(46,125,50,0.1)' }
-                                    ]}>
-                                        <MaterialIcons 
-                                            name={isQueue ? "schedule" : "child-care"} 
-                                            size={20} 
-                                            color={isQueue ? COLORS.orange600 : COLORS.primary} 
+                                    <View style={[styles.sessionIcon, { backgroundColor: iconBgColor }]}>
+                                        <MaterialIcons
+                                            name={isFood ? "restaurant" : (isQueue ? "schedule" : "child-care")}
+                                            size={20}
+                                            color={iconColor}
                                         />
                                     </View>
                                     <View>
                                         <View style={styles.tokenRow}>
                                             <Text style={styles.sessionId}>#{token.code}</Text>
                                             {/* Status Badge */}
-                                            <View style={[
-                                                styles.statusBadge,
-                                                { backgroundColor: isQueue ? COLORS.orange100 : COLORS.green100 }
-                                            ]}>
-                                                <Text style={[
-                                                    styles.statusBadgeText,
-                                                    { color: isQueue ? COLORS.orange700 : COLORS.green700 }
-                                                ]}>
-                                                    {isQueue ? 'WAITING' : 'ACTIVE'}
+                                            <View style={[styles.statusBadge, { backgroundColor: badgeBgColor }]}>
+                                                <Text style={[styles.statusBadgeText, { color: badgeTextColor }]}>
+                                                    {isFood
+                                                        ? (isQueue ? 'ORDERED' : 'SERVED')
+                                                        : (isQueue ? 'WAITING' : 'ACTIVE')
+                                                    }
                                                 </Text>
                                             </View>
                                         </View>
@@ -280,17 +301,17 @@ export default function CapacityControlScreen() {
                                 <View style={styles.sessionRight}>
                                     {isQueue ? (
                                         <>
-                                            <Text style={[styles.sessionTime, { color: COLORS.orange600 }]}>
+                                            <Text style={[styles.sessionTime, { color: isFood ? '#f97316' : COLORS.orange600 }]}>
                                                 {token.queuePosition || '-'}
                                             </Text>
-                                            <Text style={styles.sessionLabel}>Queue #</Text>
+                                            <Text style={styles.sessionLabel}>{isFood ? 'Order #' : 'Queue #'}</Text>
                                         </>
                                     ) : (
                                         <>
                                             <Text style={[styles.sessionTime, { color: getTimeColor(timeRemaining || '') }]}>
-                                                {timeRemaining}
+                                                {isFood ? 'Served' : timeRemaining}
                                             </Text>
-                                            <Text style={styles.sessionLabel}>Time Left</Text>
+                                            <Text style={styles.sessionLabel}>{isFood ? 'Status' : 'Time Left'}</Text>
                                         </>
                                     )}
                                 </View>
