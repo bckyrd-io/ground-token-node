@@ -18,11 +18,7 @@ export default function ManageActivitiesScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-            {/* Summary */}
-            <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>Total Capacity</Text>
-                <Text style={styles.summaryValue}>50/90</Text>
-            </View>
+ 
 
             {/* Add Button */}
             <TouchableOpacity style={styles.addButton} activeOpacity={0.7} onPress={() => router.push('/addActivityScreen')}>

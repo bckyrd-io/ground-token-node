@@ -10,31 +10,50 @@ export default function MyTokensScreen() {
     const { tokens, fetchTokens, profile } = useStore();
     const router = useRouter();
     const previousTokensRef = useRef(tokens);
+    const notifiedTokenIdsRef = useRef<Set<string>>(new Set());
+    const navigatedTokenIdsRef = useRef<Set<string>>(new Set());
 
     // Check for token status changes and notify when promoted to ready
     useEffect(() => {
         const previousTokens = previousTokensRef.current;
-        
+
         tokens.forEach(token => {
             const previousToken = previousTokens.find(t => t.id === token.id);
             if (previousToken && previousToken.status === 'queue' && token.status === 'ready') {
-                // Token was promoted from queue to ready - notify visitor
-                showImmediateNotification(
-                    "It's Your Turn!",
-                    `Token #${token.code} for ${token.name} is now ready. Show your QR code to the staff!`,
-                    { tokenId: token.id, type: 'token_ready' },
-                    'queue-alerts'
-                );
+                // Token was promoted from queue to ready - notify visitor only once
+                if (!notifiedTokenIdsRef.current.has(token.id)) {
+                    showImmediateNotification(
+                        "It's Your Turn!",
+                        `Token #${token.code} for ${token.name} is now ready. Show your QR code to the staff!`,
+                        { tokenId: token.id, type: 'token_ready' },
+                        'queue-alerts'
+                    );
+                    notifiedTokenIdsRef.current.add(token.id);
+                }
+                
+                // Auto-navigate to playTimerScreen for play activities (only once)
+                if (token.activityType !== 'food' && !navigatedTokenIdsRef.current.has(token.id)) {
+                    router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
+                    navigatedTokenIdsRef.current.add(token.id);
+                }
             }
         });
-        
+
         previousTokensRef.current = tokens;
-    }, [tokens]);
+    }, [tokens, router]);
 
     useFocusEffect(
         useCallback(() => {
             if (profile?.id) {
-                fetchTokens(profile.id);
+                const profileId = profile.id;
+                fetchTokens(profileId);
+                
+                // Poll every 5 seconds to detect status changes (e.g., staff scanned token)
+                const interval = setInterval(() => {
+                    fetchTokens(profileId);
+                }, 5000);
+                
+                return () => clearInterval(interval);
             }
         }, [fetchTokens, profile?.id])
     );
@@ -44,7 +63,7 @@ export default function MyTokensScreen() {
             {tokens.map((token) => (
                 <TouchableOpacity 
                     key={token.id} 
-                    style={[styles.card, token.status === 'ready' && { borderColor: COLORS.primary, borderWidth: 2 }]}
+                    style={[styles.card]}
                     activeOpacity={token.status === 'ready' ? 0.7 : 1}
                     onPress={() => {
                         if (token.status === 'ready') {

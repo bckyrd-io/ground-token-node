@@ -32,7 +32,7 @@ export default function RatingFeedbackScreen() {
 
         try {
             const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
-            
+
             // Mock user and activity IDs - in production, get from auth/params
             const userId = profile?.id;
 
@@ -67,8 +67,8 @@ export default function RatingFeedbackScreen() {
     };
 
     const toggleTag = (tag: string) => {
-        setSelectedTags(prev => 
-            prev.includes(tag) 
+        setSelectedTags(prev =>
+            prev.includes(tag)
                 ? prev.filter(t => t !== tag)
                 : [...prev, tag]
         );
@@ -96,17 +96,6 @@ export default function RatingFeedbackScreen() {
             </View>
 
             <View style={styles.content}>
-                {/* Branding */}
-                <View style={styles.branding}>
-                    <View style={styles.logoCircle}>
-                        <Image
-                            source={'../assets/images/icon.png' }
-                            style={styles.logoImage}
-                            contentFit="cover"
-                        />
-                    </View>
-                    <Text style={styles.brandTagline}>We hope you had a blast today!</Text>
-                </View>
 
                 {/* Star Rating */}
                 <View style={styles.ratingSection}>
@@ -141,8 +130,8 @@ export default function RatingFeedbackScreen() {
                 <View style={styles.tagsSection}>
                     <View style={styles.tagsRow}>
                         {quickTags.map((tag) => (
-                            <TouchableOpacity 
-                                key={tag} 
+                            <TouchableOpacity
+                                key={tag}
                                 style={[
                                     styles.tag,
                                     selectedTags.includes(tag) && styles.tagSelected
@@ -161,8 +150,8 @@ export default function RatingFeedbackScreen() {
 
             {/* Footer */}
             <View style={styles.footer}>
-                <TouchableOpacity 
-                    style={styles.submitButton} 
+                <TouchableOpacity
+                    style={styles.submitButton}
                     activeOpacity={0.9}
                     onPress={handleSubmit}
                     disabled={isLoading}
@@ -172,7 +161,6 @@ export default function RatingFeedbackScreen() {
                     </Text>
                     <MaterialIcons name="send" size={20} color={COLORS.white} />
                 </TouchableOpacity>
-                <Text style={styles.footerNote}>Your feedback helps us make Gelato Kids better for everyone</Text>
             </View>
         </SafeAreaView>
     );

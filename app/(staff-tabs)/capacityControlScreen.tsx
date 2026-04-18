@@ -135,7 +135,7 @@ export default function CapacityControlScreen() {
 
         const now = new Date();
         const created = new Date(token.createdAt);
-        const expires = token.expiresAt ? new Date(token.expiresAt) : new Date(created.getTime() + 2 * 60 * 60 * 1000); // 2 hours default
+        const expires = token.expiresAt ? new Date(token.expiresAt) : new Date(created.getTime() + 30 * 1000); // 30 seconds default
 
         const diffMs = expires.getTime() - now.getTime();
         if (diffMs <= 0) return 'Expired';

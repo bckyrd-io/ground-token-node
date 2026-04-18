@@ -3,7 +3,7 @@ import { showImmediateNotification } from '@/utils/notifications';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from './store';
@@ -14,51 +14,17 @@ export default function PlayTimerScreen() {
     const { tokens } = useStore();
     const [timeLeft, setTimeLeft] = useState('00:08');
     const [isFinished, setIsFinished] = useState(false);
+    const notificationSentRef = useRef(false);
 
     const token = tokens.find(t => t.id.toString() === tokenId);
 
     /*
-     * TODO: Replace this test timer with proper session duration from backend
-     * 
-     * IMPROVEMENTS NEEDED:
-     * 1. Get actual session duration from activity settings (e.g., 30 min, 1 hour, 2 hours)
-     * 2. Store session start time when token status changes to 'ready'
-     * 3. Calculate remaining time from: expiresAt - currentTime
-     * 4. Add server-side sync to prevent tampering with local time
-     * 5. Handle app background/foreground state to pause/resume timer accurately
-     * 6. Add push notification when session is about to expire (5 min warning)
-     * 7. Support different durations for different activity types
-     * 
-     * Current implementation uses hardcoded 8s for quick testing only.
+     * Timer uses actual session duration from backend (expiresAt)
+     * Session duration is 30 seconds from when token becomes 'ready' (in_use)
      */
     useEffect(() => {
-        // TESTING: Hardcoded 8 second countdown for quick testing
-        let seconds = 8;
-        
-        const updateTimer = () => {
-            if (seconds <= 0) {
-                setTimeLeft('00:00');
-                setIsFinished(true);
-                // Show notification when timer ends
-                showImmediateNotification(
-                    'Play Session Ended',
-                    'Your play session has ended. Please leave feedback!',
-                    { tokenId, type: 'timer_end' },
-                    'timer-alerts'
-                );
-            } else {
-                setTimeLeft(`00:0${seconds}`);
-                seconds--;
-            }
-        };
-
-        updateTimer();
-        const interval = setInterval(updateTimer, 1000);
-        return () => clearInterval(interval);
-        
-        /* ORIGINAL CODE - restore when proper session duration is implemented:
         if (!token?.expiresAt) return;
-        
+
         const updateTimer = () => {
             const now = new Date().getTime();
             const expires = new Date(token.expiresAt as string).getTime();
@@ -67,17 +33,32 @@ export default function PlayTimerScreen() {
             if (diff <= 0) {
                 setTimeLeft('00:00');
                 setIsFinished(true);
+                // Show notification when timer ends (only once)
+                if (!notificationSentRef.current) {
+                    showImmediateNotification(
+                        'Play Session Ended',
+                        'Your play session has ended. Please leave feedback!',
+                        { tokenId, type: 'timer_end' },
+                        'timer-alerts'
+                    );
+                    notificationSentRef.current = true;
+                }
             } else {
-                const minutes = Math.floor(diff / (1000 * 60));
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+
+                if (hours > 0) {
+                    setTimeLeft(`${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                } else {
+                    setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                }
             }
         };
 
         updateTimer();
         const interval = setInterval(updateTimer, 1000);
         return () => clearInterval(interval);
-        */
     }, [token]);
 
     const handleFinish = () => {
@@ -114,7 +95,7 @@ export default function PlayTimerScreen() {
                         </View>
                         <View>
                             <Text style={styles.detailsLabel}>Currently Playing</Text>
-                            <Text style={styles.detailsValue}>Token: #{token?.code || 'Loading'}</Text>
+                            <Text style={styles.detailsValue}>#{token?.code || 'Loading'}</Text>
                         </View>
                     </View>
 
@@ -138,7 +119,7 @@ export default function PlayTimerScreen() {
                 {/* Safety Reminder / Finish Button */}
                 {isFinished ? (
                     <TouchableOpacity style={styles.finishBtn} onPress={handleFinish}>
-                        <Text style={styles.finishBtnText}>Session Finished - Leave Feedback</Text>
+                        <Text style={styles.finishBtnText}>Leave Feedback</Text>
                         <MaterialIcons name="arrow-forward" size={20} color={COLORS.white} />
                     </TouchableOpacity>
                 ) : (

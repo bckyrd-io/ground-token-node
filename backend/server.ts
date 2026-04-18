@@ -350,9 +350,9 @@ async function processAutoQueue() {
         const activities = actRows as any[];
         
         for (const act of activities) {
-            // Expire old tokens (assume 120 mins limit)
+            // Expire old tokens (assume 30 second limit for testing)
             await db.execute(
-                `UPDATE tokens SET status = 'completed' WHERE activityId = ? AND status = 'in_use' AND DATE_ADD(usedAt, INTERVAL 120 MINUTE) < NOW()`,
+                `UPDATE tokens SET status = 'completed' WHERE activityId = ? AND status = 'in_use' AND DATE_ADD(usedAt, INTERVAL 30 SECOND) < NOW()`,
                 [act.id]
             );
             
@@ -400,33 +400,25 @@ app.get('/api/tokens', async (req, res) => {
         await processAutoQueue();
         const { userId } = req.query;
         
+        // Fetch ALL tokens first to calculate queue positions globally
         let query = `
             SELECT t.*, COALESCE(a.name, 'Unknown Activity') as activityName, 
                    COALESCE(a.type, 'play') as activityType, u.username 
             FROM tokens t 
             LEFT JOIN activities a ON t.activityId = a.id 
             JOIN users u ON t.userId = u.id 
+            ORDER BY t.createdAt ASC
         `;
-        let params: any[] = [];
         
-        // Filter by userId if provided
-        if (userId) {
-            query += ' WHERE t.userId = ?';
-            params.push(userId);
-        }
-        
-        query += ' ORDER BY t.createdAt ASC';
-        
-        const [rows] = await db.execute(query, params);
-        const tokens = rows as any[];
+        const [rows] = await db.execute(query);
+        const allTokens = rows as any[];
 
-        console.log('[Tokens] Raw query result count:', tokens.length);
-        console.log('[Tokens] Sample raw token:', tokens[0]);
+        console.log('[Tokens] Raw query result count:', allTokens.length);
+        console.log('[Tokens] Sample raw token:', allTokens[0]);
 
-        // Transform to frontend format with computed fields
+        // Calculate queue positions globally for each activity
         const queuePositions: Record<string, number> = {};
-        const formattedTokens = tokens.map((token) => {
-            console.log(`[Tokens] Processing token ${token.code}: activityName="${token.activityName}", activityId=${token.activityId}`);
+        const tokensWithPositions = allTokens.map((token) => {
             let qPos = null;
             if (token.status === 'queue') {
                 queuePositions[token.activityId] = (queuePositions[token.activityId] || 0) + 1;
@@ -434,7 +426,7 @@ app.get('/api/tokens', async (req, res) => {
             }
             
             const baseTime = token.usedAt ? new Date(token.usedAt) : new Date(token.createdAt);
-            const computedExpiresAt = new Date(baseTime.getTime() + 120 * 60 * 1000).toISOString();
+            const computedExpiresAt = new Date(baseTime.getTime() + 30 * 1000).toISOString();
             
             return {
                 id: token.id,
@@ -451,10 +443,108 @@ app.get('/api/tokens', async (req, res) => {
             };
         });
 
-        res.json(formattedTokens);
+        // Filter by userId if provided (after queue positions are calculated globally)
+        if (userId) {
+            const userIdNum = parseInt(userId as string);
+            const filtered = allTokens
+                .filter(token => token.userId === userIdNum)
+                .map(token => {
+                    const formatted = tokensWithPositions.find(t => t.id === token.id);
+                    return formatted;
+                })
+                .filter(t => t !== undefined);
+            res.json(filtered);
+        } else {
+            res.json(tokensWithPositions);
+        }
     } catch (error) {
         console.error('Error fetching tokens:', error);
         res.status(500).json({ error: 'Failed to fetch tokens' });
+    }
+});
+
+// Validate token by code (for scanner)
+app.get('/api/tokens/validate/:code', async (req, res) => {
+    try {
+        const { code } = req.params;
+        
+        const [rows] = await db.execute(`
+            SELECT t.*, COALESCE(a.name, 'Unknown Activity') as activityName, 
+                   COALESCE(a.type, 'play') as activityType, u.username 
+            FROM tokens t 
+            LEFT JOIN activities a ON t.activityId = a.id 
+            JOIN users u ON t.userId = u.id 
+            WHERE t.code = ?
+        `, [code]);
+        const tokens = rows as any[];
+        
+        if (tokens.length === 0) {
+            return res.status(404).json({ 
+                valid: false, 
+                message: 'Token not found' 
+            });
+        }
+        
+        const token = tokens[0];
+        
+        // Check if token is expired
+        const baseTime = token.usedAt ? new Date(token.usedAt) : new Date(token.createdAt);
+        const expiresAt = new Date(baseTime.getTime() + 30 * 1000);
+        const now = new Date();
+        const isExpired = now > expiresAt;
+        
+        // Determine validity
+        let isValid = false;
+        let statusMessage = '';
+        
+        if (isExpired) {
+            isValid = false;
+            statusMessage = 'Token has expired';
+        } else if (token.status === 'completed' || token.status === 'cancelled') {
+            isValid = false;
+            statusMessage = `Token is ${token.status}`;
+        } else if (token.status === 'queue') {
+            isValid = false;
+            statusMessage = 'Token is still in queue';
+        } else if (token.status === 'pending') {
+            isValid = false;
+            statusMessage = 'Token is pending payment';
+        } else if (token.status === 'in_use') {
+            isValid = true;
+            statusMessage = 'Token is valid and ready for use';
+        } else {
+            isValid = false;
+            statusMessage = 'Unknown token status';
+        }
+        
+        // Calculate queue position if in queue
+        let queuePosition = null;
+        if (token.status === 'queue') {
+            const [queueRows] = await db.execute(
+                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND status = 'queue' AND createdAt <= ?`,
+                [token.activityId, token.createdAt]
+            );
+            queuePosition = (queueRows as any[])[0].cnt;
+        }
+        
+        res.json({
+            valid: isValid,
+            message: statusMessage,
+            token: {
+                id: token.id,
+                code: token.code,
+                status: token.status,
+                activityName: token.activityName,
+                activityType: token.activityType || 'play',
+                username: token.username,
+                expiresAt: expiresAt.toISOString(),
+                isExpired: isExpired,
+                queuePosition: queuePosition,
+            }
+        });
+    } catch (error) {
+        console.error('Error validating token:', error);
+        res.status(500).json({ error: 'Failed to validate token' });
     }
 });
 
@@ -537,6 +627,7 @@ app.put('/api/activities/:id/capacity-control', async (req, res) => {
             return res.status(400).json({ error: 'isOpen must be a boolean' });
         }
         
+        // Update the capacity control flag
         const [result] = await db.execute(
             'UPDATE activities SET isCapacityControlOpen = ?, updatedAt = NOW() WHERE id = ?',
             [isOpen, id]
@@ -544,6 +635,48 @@ app.put('/api/activities/:id/capacity-control', async (req, res) => {
         
         if ((result as any).affectedRows === 0) {
             return res.status(404).json({ error: 'Activity not found' });
+        }
+        
+        // When capacity control is turned OFF, expire active visitors and promote queue #1
+        if (!isOpen) {
+            console.log(`[Capacity Control] Turning OFF for activity ${id} - expiring active visitors and promoting queue #1`);
+            
+            // Expire all currently active (in_use) tokens for this activity
+            await db.execute(
+                `UPDATE tokens SET status = 'expired' WHERE activityId = ? AND status = 'in_use'`,
+                [id]
+            );
+            
+            // Get the first token in queue (ordered by creation time)
+            const [queueRows] = await db.execute(
+                `SELECT id FROM tokens WHERE activityId = ? AND status = 'queue' ORDER BY createdAt ASC LIMIT 1`,
+                [id]
+            );
+            const queueTokens = queueRows as any[];
+            
+            if (queueTokens.length > 0) {
+                // Promote the first queue token to in_use
+                const firstQueueTokenId = queueTokens[0].id;
+                await db.execute(
+                    `UPDATE tokens SET status = 'in_use', usedAt = NOW() WHERE id = ?`,
+                    [firstQueueTokenId]
+                );
+                console.log(`[Capacity Control] Promoted token ${firstQueueTokenId} from queue to in_use`);
+            }
+            
+            // Update currentOccupancy to reflect the new state
+            const [newActiveRows] = await db.execute(
+                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND status = 'in_use'`,
+                [id]
+            );
+            const newActiveCount = Number((newActiveRows as any[])[0].cnt);
+            await db.execute(
+                `UPDATE activities SET currentOccupancy = ? WHERE id = ?`,
+                [newActiveCount, id]
+            );
+            console.log(`[Capacity Control] Updated occupancy to ${newActiveCount}`);
+        } else {
+            console.log(`[Capacity Control] Turning ON for activity ${id} - normal queue processing will handle capacity limits`);
         }
         
         res.json({ 
@@ -1201,14 +1334,45 @@ app.post('/api/payment/webhook', async (req, res) => {
                 WHERE transactionId = ?
             `, [JSON.stringify(payload), chargeId]);
 
-            // Activate the token
-            const [tokenResult] = await db.execute(`
-                UPDATE tokens 
-                SET status = 'queue'
-                WHERE paymentId = ? AND status = 'pending'
+            // Get the token and activity info
+            const [tokenRows] = await db.execute(`
+                SELECT t.id, t.activityId, a.capacity, a.currentOccupancy 
+                FROM tokens t
+                JOIN activities a ON t.activityId = a.id
+                WHERE t.paymentId = ? AND t.status = 'pending'
             `, [payment.id]);
+            const pendingTokens = tokenRows as any[];
 
-            console.log(`[Webhook] Token activated for payment ${payment.id}, rows affected: ${(tokenResult as any).affectedRows}`);
+            if (pendingTokens.length > 0) {
+                const token = pendingTokens[0];
+                const availableSpots = token.capacity - token.currentOccupancy;
+
+                if (availableSpots > 0) {
+                    // Capacity available - put directly in_use and start timer
+                    await db.execute(`
+                        UPDATE tokens 
+                        SET status = 'in_use', usedAt = NOW()
+                        WHERE id = ?
+                    `, [token.id]);
+                    
+                    // Update activity occupancy
+                    await db.execute(`
+                        UPDATE activities 
+                        SET currentOccupancy = currentOccupancy + 1
+                        WHERE id = ?
+                    `, [token.activityId]);
+                    
+                    console.log(`[Webhook] Token ${token.id} activated and started (in_use)`);
+                } else {
+                    // No capacity - put in queue
+                    await db.execute(`
+                        UPDATE tokens 
+                        SET status = 'queue'
+                        WHERE id = ?
+                    `, [token.id]);
+                    console.log(`[Webhook] Token ${token.id} added to queue`);
+                }
+            }
 
             res.json({ received: true, status: 'success' });
         } else if (status === 'failed' || status === 'cancelled' || status === 'declined') {
@@ -1359,7 +1523,7 @@ app.get('/api/admin/dashboard', async (req, res) => {
         const [revenueRows] = await db.execute(`
             SELECT COUNT(*) as totalTokens, 
                    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completedTokens,
-                   COALESCE(SUM(CASE WHEN t.status IN ('completed', 'paid') THEN a.price ELSE 0 END), 0) as totalRevenue
+                   COALESCE(SUM(a.price), 0) as totalRevenue
             FROM tokens t
             LEFT JOIN activities a ON t.activityId = a.id
         `) as [any[], any];
@@ -1483,7 +1647,7 @@ app.get('/api/admin/export-report', async (req, res) => {
         // Get all tokens with activity and user info
         const [tokenRows] = await db.execute(`
             SELECT t.code, t.status, t.createdAt, t.usedAt,
-                   a.name as activityName, a.price,
+                   a.name as activity, a.price as amount,
                    u.username as userName
             FROM tokens t
             JOIN activities a ON t.activityId = a.id
@@ -1499,25 +1663,33 @@ app.get('/api/admin/export-report', async (req, res) => {
         `) as [any[], any];
         const activities = activityRows as any[];
 
-        // Get staff summary
+        // Get staff summary with zone information
         const [staffRows] = await db.execute(`
-            SELECT u.username, u.email, u.role, s.status
+            SELECT u.username as name, u.email, u.role, s.status,
+                   a.name as zone
             FROM users u 
             JOIN staff s ON u.id = s.userId 
+            LEFT JOIN staffActivities sa ON s.id = sa.staffId AND sa.isActive = 1
+            LEFT JOIN activities a ON sa.activityId = a.id AND a.isActive = 1
             WHERE u.isActive = 1 AND s.isActive = 1
         `) as [any[], any];
         const staff = staffRows as any[];
+
+        // Calculate total revenue from all tokens
+        const totalRevenue = tokens
+            .reduce((sum, t) => sum + (t.amount || 0), 0);
 
         // Return data for frontend PDF generation
         res.json({
             summary: {
                 totalTokens: tokens.length,
                 completedTokens: tokens.filter(t => t.status === 'completed').length,
+                totalRevenue: totalRevenue,
                 totalActivities: activities.length,
                 totalStaff: staff.length,
                 generatedDate: new Date().toLocaleDateString()
             },
-            tokens: tokens.slice(0, 50), // Limit to recent 50 tokens
+            recentTokens: tokens.slice(0, 50), // Limit to recent 50 tokens
             activities,
             staff
         });

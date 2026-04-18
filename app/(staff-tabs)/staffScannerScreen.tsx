@@ -3,18 +3,23 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, StyleSheet, Text, View } from 'react-native';
+import { useStore } from '../store';
 
 const COLORS = {
     primary: '#2E7D32',
     white: '#ffffff',
     black: '#000000',
+    red: '#ef4444',
+    amber: '#f59e0b',
 };
 
 export default function StaffScannerScreen() {
     const router = useRouter();
     const isFocused = useIsFocused();
+    const { serverIp } = useStore();
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
+    const [validating, setValidating] = useState(false);
 
     useEffect(() => {
         if (permission && !permission.granted) {
@@ -22,41 +27,74 @@ export default function StaffScannerScreen() {
         }
     }, [permission]);
 
-    const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
-        if (scanned) return;
+    const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+        if (scanned || validating) return;
         setScanned(true);
-
-        // Parse QR code data - assuming it contains token code and type info
-        // Format could be: "TOKEN:ABC123" or JSON with token details
-        // For now, we'll simulate the validation by checking if data contains token info
-        const isFoodToken = data.includes('FOOD') || data.includes('food');
-        const isPlayToken = data.includes('PLAY') || data.includes('play') || !isFoodToken;
+        setValidating(true);
 
         // Extract token code from data (remove prefixes if present)
-        let tokenCode = data;
+        let tokenCode = data.trim();
         if (data.includes(':')) {
-            tokenCode = data.split(':')[1];
+            tokenCode = data.split(':')[1].trim();
         }
 
-        if (isFoodToken) {
-            Alert.alert('Food Order Confirmed', `Token: ${tokenCode}\n\nThis is a food order. The visitor can now leave a review.`, [
-                {
-                    text: 'Continue to Review',
-                    onPress: () => {
-                        // Navigate to rating screen for food tokens
-                        router.push({ pathname: '/ratingFeedbackScreen', params: { tokenCode } } as any);
-                    },
-                },
-            ]);
-        } else {
-            Alert.alert('Token Validated', `Token: ${tokenCode}\n\nReady for session.`, [
-                {
-                    text: 'Start Session',
-                    onPress: () => {
-                        // Navigate to validation result for play tokens
-                        router.push('/capacityControlScreen' as any);
-                    },
-                },
+        try {
+            // Validate token against backend
+            const response = await fetch(`${serverIp}/api/tokens/validate/${tokenCode}`);
+            const result = await response.json();
+
+            if (!response.ok) {
+                Alert.alert('Validation Error', result.message || 'Failed to validate token', [
+                    { text: 'OK', onPress: () => { setScanned(false); setValidating(false); } }
+                ]);
+                return;
+            }
+
+            if (result.valid) {
+                // Token is valid and ready
+                const token = result.token;
+                const isFood = token.activityType === 'food';
+                
+                if (isFood) {
+                    Alert.alert(
+                        'Food Order Valid',
+                        `Token: ${token.code}\nUser: ${token.username}\n\nThis food order is ready to serve.`,
+                        [
+                            {
+                                text: 'OK',
+                                onPress: () => { setScanned(false); setValidating(false); }
+                            }
+                        ]
+                    );
+                } else {
+                    Alert.alert(
+                        'Token Validated',
+                        `Token: ${token.code}\nUser: ${token.username}\nActivity: ${token.activityName}\n\nSession is active. Visitor can start play session.`,
+                        [
+                            {
+                                text: 'OK',
+                                onPress: () => { setScanned(false); setValidating(false); }
+                            }
+                        ]
+                    );
+                }
+            } else {
+                // Token is invalid/expired/not ready
+                Alert.alert(
+                    'Token Invalid',
+                    `Token: ${tokenCode}\n\n${result.message}`,
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => { setScanned(false); setValidating(false); }
+                        }
+                    ]
+                );
+            }
+        } catch (error) {
+            console.error('Error validating token:', error);
+            Alert.alert('Network Error', 'Failed to connect to server. Please try again.', [
+                { text: 'OK', onPress: () => { setScanned(false); setValidating(false); } }
             ]);
         }
     };
@@ -106,11 +144,16 @@ export default function StaffScannerScreen() {
             </View>
 
             <View style={styles.instructionBadge}>
-                <Text style={styles.instructionText}>Align QR code within the frame</Text>
+                <Text style={styles.instructionText}>
+                    {validating ? 'Validating token...' : 'Align QR code within the frame'}
+                </Text>
             </View>
 
-            {scanned && (
-                <Text style={styles.statusText}>Scanned! Please wait...</Text>
+            {validating && (
+                <View style={styles.validatingContainer}>
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                    <Text style={styles.validatingText}>Validating...</Text>
+                </View>
             )}
         </View>
     );
@@ -204,6 +247,17 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     instructionText: {
+        color: COLORS.white,
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    validatingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 8,
+    },
+    validatingText: {
         color: COLORS.white,
         fontSize: 14,
         fontWeight: '500',

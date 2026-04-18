@@ -68,7 +68,7 @@ export default function AdminDashboardScreen() {
 
     const handleExportReport = async () => {
         try {
-            showToast('Generating report...', 'info');
+            showToast('Generating report...', 'success');
             
             const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
             const response = await fetch(`${serverIp}/api/admin/export-report`);

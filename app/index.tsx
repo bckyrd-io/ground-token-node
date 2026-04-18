@@ -111,6 +111,14 @@ export default function OnboardingScreen() {
                         snapToInterval={width - 48 + 16}
                         contentContainerStyle={styles.flatListContent}
                         ItemSeparatorComponent={() => <View style={styles.separator} />}
+                        getItemLayout={(_, index) => ({
+                            length: width - 48 + 16,
+                            offset: (width - 48 + 16) * index,
+                            index,
+                        })}
+                        onScrollToIndexFailed={(info) => {
+                            console.warn('Scroll to index failed:', info);
+                        }}
                     />
 
                     <Animated.Text style={[styles.slideTitle, { opacity: fadeAnim }]}>
@@ -150,7 +158,9 @@ export default function OnboardingScreen() {
                         activeOpacity={0.9}
                         onPress={() => router.push('/(visitor-tabs)/activityCatalogScreen')}
                     >
-                        <Text style={styles.primaryButtonText}>Browse</Text>
+                        <Text style={styles.primaryButtonText}>Get 
+                            started
+                        </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
