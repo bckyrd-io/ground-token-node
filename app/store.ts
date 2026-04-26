@@ -50,7 +50,7 @@ type Token = {
     id: string;
     name: string;
     code: string;
-    status: 'queue' | 'ready';
+    status: 'queue' | 'ready' | 'in_use' | 'completed' | 'expired';
     queuePosition: string | null;
     qrImage: string;
     activityId?: string | number;

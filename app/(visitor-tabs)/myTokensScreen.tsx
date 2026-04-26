@@ -7,7 +7,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { useStore } from '../store';
 
 export default function MyTokensScreen() {
-    const { tokens, fetchTokens, profile } = useStore();
+    const { tokens, fetchTokens, profile, serverIp } = useStore();
     const router = useRouter();
     const previousTokensRef = useRef(tokens);
     const notifiedTokenIdsRef = useRef<Set<string>>(new Set());
@@ -30,8 +30,10 @@ export default function MyTokensScreen() {
                     );
                     notifiedTokenIdsRef.current.add(token.id);
                 }
-                
-                // Auto-navigate to playTimerScreen for play activities (only once)
+            }
+
+            // Auto-navigate to playTimerScreen when token becomes 'in_use' (session started by staff scan)
+            if (previousToken && previousToken.status === 'ready' && token.status === 'in_use') {
                 if (token.activityType !== 'food' && !navigatedTokenIdsRef.current.has(token.id)) {
                     router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
                     navigatedTokenIdsRef.current.add(token.id);
@@ -61,15 +63,35 @@ export default function MyTokensScreen() {
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             {tokens.map((token) => (
-                <TouchableOpacity 
-                    key={token.id} 
+                <TouchableOpacity
+                    key={token.id}
                     style={[styles.card]}
-                    activeOpacity={token.status === 'ready' ? 0.7 : 1}
-                    onPress={() => {
+                    activeOpacity={token.status === 'ready' || token.status === 'in_use' ? 0.7 : 1}
+                    onPress={async () => {
                         if (token.status === 'ready') {
                             if (token.activityType === 'food') {
                                 router.push({ pathname: '/ratingFeedbackScreen', params: { activityId: token.activityId } });
                             } else {
+                                // Start session by calling backend endpoint
+                                try {
+                                    const response = await fetch(`${serverIp}/api/tokens/${token.id}/start`, {
+                                        method: 'POST',
+                                    });
+                                    const result = await response.json();
+
+                                    if (result.success) {
+                                        // Session started successfully, navigate to playTimerScreen
+                                        router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
+                                    } else {
+                                        console.error('Failed to start session:', result.message);
+                                    }
+                                } catch (error) {
+                                    console.error('Error starting session:', error);
+                                }
+                            }
+                        } else if (token.status === 'in_use') {
+                            // Session already started, navigate directly to playTimerScreen
+                            if (token.activityType !== 'food') {
                                 router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
                             }
                         }
@@ -81,7 +103,7 @@ export default function MyTokensScreen() {
                             <Text style={styles.activityName}>{token.name}</Text>
                             <Text style={styles.tokenCode}>{token.code}</Text>
                         </View>
-                        {token.status === 'ready' ? (
+                        {token.status === 'ready' || token.status === 'in_use' ? (
                             <View style={[styles.readyBadge, token.activityType === 'food' && styles.foodReadyBadge]}>
                                 <Text style={styles.readyBadgeText}>
                                     {token.activityType === 'food' ? 'Ready to Serve' : 'Ready to Play'}

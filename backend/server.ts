@@ -35,6 +35,16 @@ const PAYCHANGU_SECRET_KEY = process.env.PAYCHANGU_SECRET_KEY || '';
 const PAYCHANGU_BASE_URL = process.env.PAYCHANGU_BASE_URL || 'https://api.paychangu.com';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 
+// SESSION_DURATION_MS: Time in milliseconds for play sessions
+// Sample values for testing/production:
+// - 30 * 1000 = 30 seconds (current MVP testing)
+// - 60 * 1000 = 1 minute (recommended for testing)
+// - 5 * 60 * 1000 = 5 minutes (short sessions)
+// - 10 * 60 * 1000 = 10 minutes (standard sessions)
+// - 15 * 60 * 1000 = 15 minutes (extended sessions)
+// - 30 * 60 * 1000 = 30 minutes (long sessions)
+const SESSION_DURATION_MS = 60 * 1000; // 1 minute for testing
+
 // PayChangu API helper function
 async function initiatePayChanguPayment(params: {
   amount: number;
@@ -348,24 +358,25 @@ async function processAutoQueue() {
     try {
         const [actRows] = await db.execute('SELECT id, capacity FROM activities WHERE isActive = 1');
         const activities = actRows as any[];
-        
+
         for (const act of activities) {
-            // Expire old tokens (assume 30 second limit for testing)
+            // Expire old tokens (only 'in_use' status, not 'ready')
+            // Timer only starts when session begins (staff scan or visitor tap)
             await db.execute(
-                `UPDATE tokens SET status = 'completed' WHERE activityId = ? AND status = 'in_use' AND DATE_ADD(usedAt, INTERVAL 30 SECOND) < NOW()`,
-                [act.id]
+                `UPDATE tokens SET status = 'completed' WHERE activityId = ? AND status = 'in_use' AND DATE_ADD(usedAt, INTERVAL ? SECOND) < NOW()`,
+                [act.id, SESSION_DURATION_MS / 1000]
             );
-            
-            // Count current occupancy
+
+            // Count current occupancy (both 'in_use' and 'ready' occupy capacity)
             const [activeCountRows] = await db.execute(
-                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND status = 'in_use'`,
+                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND (status = 'in_use' OR status = 'ready')`,
                 [act.id]
             );
             const activeCount = Number((activeCountRows as any[])[0].cnt);
             const availableSpots = act.capacity - activeCount;
-            
+
             if (availableSpots > 0) {
-                // Pull from queue
+                // Pull from queue and promote to 'ready' (timer NOT started yet)
                 const [queueRows] = await db.execute(
                     `SELECT id FROM tokens WHERE activityId = ? AND status = 'queue' ORDER BY createdAt ASC LIMIT ?`,
                     [act.id, availableSpots]
@@ -374,14 +385,14 @@ async function processAutoQueue() {
                 if (qTokens.length > 0) {
                     const ids = qTokens.map((r: any) => r.id);
                     await db.execute(
-                        `UPDATE tokens SET status = 'in_use', usedAt = NOW() WHERE id IN (${ids.join(',')})`
+                        `UPDATE tokens SET status = 'ready' WHERE id IN (${ids.join(',')})`
                     );
                 }
             }
-            
-            // Update activities table to reflect accurate occupancy
+
+            // Update activities table to reflect accurate occupancy (count in_use + ready)
             const [newActiveRows] = await db.execute(
-                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND status = 'in_use'`,
+                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND (status = 'in_use' OR status = 'ready')`,
                 [act.id]
             );
             const newActiveCount = Number((newActiveRows as any[])[0].cnt);
@@ -424,16 +435,21 @@ app.get('/api/tokens', async (req, res) => {
                 queuePositions[token.activityId] = (queuePositions[token.activityId] || 0) + 1;
                 qPos = `#${queuePositions[token.activityId]}`;
             }
-            
-            const baseTime = token.usedAt ? new Date(token.usedAt) : new Date(token.createdAt);
-            const computedExpiresAt = new Date(baseTime.getTime() + 30 * 1000).toISOString();
-            
+
+            // Only calculate expiresAt for tokens with usedAt set (status 'in_use')
+            // 'ready' tokens don't have expiresAt yet - timer starts when session begins
+            let computedExpiresAt = null;
+            if (token.usedAt) {
+                const baseTime = new Date(token.usedAt);
+                computedExpiresAt = new Date(baseTime.getTime() + SESSION_DURATION_MS).toISOString();
+            }
+
             return {
                 id: token.id,
                 activityId: token.activityId,
                 name: token.activityName || 'Unknown',
                 code: token.code,
-                status: token.status === 'in_use' ? 'ready' : token.status,
+                status: token.status, // Pass through as-is (ready, in_use, queue, completed, expired)
                 queuePosition: qPos,
                 qrImage: token.qrCode,
                 username: token.username,
@@ -489,14 +505,14 @@ app.get('/api/tokens/validate/:code', async (req, res) => {
         
         // Check if token is expired
         const baseTime = token.usedAt ? new Date(token.usedAt) : new Date(token.createdAt);
-        const expiresAt = new Date(baseTime.getTime() + 30 * 1000);
+        const expiresAt = new Date(baseTime.getTime() + SESSION_DURATION_MS);
         const now = new Date();
         const isExpired = now > expiresAt;
-        
+
         // Determine validity
         let isValid = false;
         let statusMessage = '';
-        
+
         if (isExpired) {
             isValid = false;
             statusMessage = 'Token has expired';
@@ -512,6 +528,15 @@ app.get('/api/tokens/validate/:code', async (req, res) => {
         } else if (token.status === 'in_use') {
             isValid = true;
             statusMessage = 'Token is valid and ready for use';
+        } else if (token.status === 'ready') {
+            // Token is ready - start the session by updating to 'in_use'
+            isValid = true;
+            statusMessage = 'Token is valid and ready for use';
+            await db.execute(
+                `UPDATE tokens SET status = 'in_use', usedAt = NOW() WHERE id = ?`,
+                [token.id]
+            );
+            console.log(`[Validate] Token ${token.id} started session (ready → in_use)`);
         } else {
             isValid = false;
             statusMessage = 'Unknown token status';
@@ -545,6 +570,66 @@ app.get('/api/tokens/validate/:code', async (req, res) => {
     } catch (error) {
         console.error('Error validating token:', error);
         res.status(500).json({ error: 'Failed to validate token' });
+    }
+});
+
+// Start token session (visitor taps QR code to begin)
+app.post('/api/tokens/:id/start', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [rows] = await db.execute(`
+            SELECT t.*, a.name as activityName, a.type as activityType
+            FROM tokens t
+            LEFT JOIN activities a ON t.activityId = a.id
+            WHERE t.id = ?
+        `, [id]);
+        const tokens = rows as any[];
+
+        if (tokens.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Token not found'
+            });
+        }
+
+        const token = tokens[0];
+
+        // Only allow starting if token is in 'ready' state
+        if (token.status !== 'ready') {
+            return res.status(400).json({
+                success: false,
+                message: `Token cannot be started. Current status: ${token.status}`
+            });
+        }
+
+        // Update token to 'in_use' and set usedAt timestamp
+        await db.execute(
+            `UPDATE tokens SET status = 'in_use', usedAt = NOW() WHERE id = ?`,
+            [id]
+        );
+
+        console.log(`[Start Session] Token ${id} started by visitor (ready → in_use)`);
+
+        // Return updated token with expiresAt
+        const baseTime = new Date();
+        const expiresAt = new Date(baseTime.getTime() + SESSION_DURATION_MS).toISOString();
+
+        res.json({
+            success: true,
+            message: 'Session started successfully',
+            token: {
+                id: token.id,
+                code: token.code,
+                status: 'in_use',
+                activityName: token.activityName,
+                activityType: token.activityType || 'play',
+                expiresAt: expiresAt,
+            }
+        });
+    } catch (error) {
+        console.error('Error starting token session:', error);
+        res.status(500).json({ error: 'Failed to start session' });
     }
 });
 
@@ -640,33 +725,33 @@ app.put('/api/activities/:id/capacity-control', async (req, res) => {
         // When capacity control is turned OFF, expire active visitors and promote queue #1
         if (!isOpen) {
             console.log(`[Capacity Control] Turning OFF for activity ${id} - expiring active visitors and promoting queue #1`);
-            
-            // Expire all currently active (in_use) tokens for this activity
+
+            // Expire all currently active (in_use and ready) tokens for this activity
             await db.execute(
-                `UPDATE tokens SET status = 'expired' WHERE activityId = ? AND status = 'in_use'`,
+                `UPDATE tokens SET status = 'expired' WHERE activityId = ? AND (status = 'in_use' OR status = 'ready')`,
                 [id]
             );
-            
+
             // Get the first token in queue (ordered by creation time)
             const [queueRows] = await db.execute(
                 `SELECT id FROM tokens WHERE activityId = ? AND status = 'queue' ORDER BY createdAt ASC LIMIT 1`,
                 [id]
             );
             const queueTokens = queueRows as any[];
-            
+
             if (queueTokens.length > 0) {
-                // Promote the first queue token to in_use
+                // Promote the first queue token to 'ready' (timer NOT started yet)
                 const firstQueueTokenId = queueTokens[0].id;
                 await db.execute(
-                    `UPDATE tokens SET status = 'in_use', usedAt = NOW() WHERE id = ?`,
+                    `UPDATE tokens SET status = 'ready' WHERE id = ?`,
                     [firstQueueTokenId]
                 );
-                console.log(`[Capacity Control] Promoted token ${firstQueueTokenId} from queue to in_use`);
+                console.log(`[Capacity Control] Promoted token ${firstQueueTokenId} from queue to ready`);
             }
-            
-            // Update currentOccupancy to reflect the new state
+
+            // Update currentOccupancy to reflect the new state (count in_use + ready)
             const [newActiveRows] = await db.execute(
-                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND status = 'in_use'`,
+                `SELECT COUNT(*) as cnt FROM tokens WHERE activityId = ? AND (status = 'in_use' OR status = 'ready')`,
                 [id]
             );
             const newActiveCount = Number((newActiveRows as any[])[0].cnt);
@@ -1348,25 +1433,26 @@ app.post('/api/payment/webhook', async (req, res) => {
                 const availableSpots = token.capacity - token.currentOccupancy;
 
                 if (availableSpots > 0) {
-                    // Capacity available - put directly in_use and start timer
+                    // Capacity available - put in 'ready' state (timer NOT started yet)
+                    // Timer starts when staff scans QR or visitor taps it
                     await db.execute(`
-                        UPDATE tokens 
-                        SET status = 'in_use', usedAt = NOW()
+                        UPDATE tokens
+                        SET status = 'ready'
                         WHERE id = ?
                     `, [token.id]);
-                    
+
                     // Update activity occupancy
                     await db.execute(`
-                        UPDATE activities 
+                        UPDATE activities
                         SET currentOccupancy = currentOccupancy + 1
                         WHERE id = ?
                     `, [token.activityId]);
-                    
-                    console.log(`[Webhook] Token ${token.id} activated and started (in_use)`);
+
+                    console.log(`[Webhook] Token ${token.id} activated (ready state, timer not started)`);
                 } else {
                     // No capacity - put in queue
                     await db.execute(`
-                        UPDATE tokens 
+                        UPDATE tokens
                         SET status = 'queue'
                         WHERE id = ?
                     `, [token.id]);
@@ -1446,10 +1532,39 @@ app.get('/api/payment/status/:chargeId', async (req, res) => {
                         'UPDATE payments SET status = ? WHERE id = ?',
                         ['completed', payment.id]
                     );
-                    await db.execute(
-                        "UPDATE tokens SET status = 'queue' WHERE paymentId = ? AND status = 'pending'",
-                        [payment.id]
-                    );
+
+                    // Get token and activity info to check capacity
+                    const [tokenRows] = await db.execute(`
+                        SELECT t.id, t.activityId, a.capacity, a.currentOccupancy
+                        FROM tokens t
+                        JOIN activities a ON t.activityId = a.id
+                        WHERE t.paymentId = ? AND t.status = 'pending'
+                    `, [payment.id]);
+                    const pendingTokens = tokenRows as any[];
+
+                    if (pendingTokens.length > 0) {
+                        const token = pendingTokens[0];
+                        const availableSpots = token.capacity - token.currentOccupancy;
+
+                        if (availableSpots > 0) {
+                            // Capacity available - put in 'ready' state (timer NOT started yet)
+                            await db.execute(
+                                "UPDATE tokens SET status = 'ready' WHERE id = ?",
+                                [token.id]
+                            );
+                            // Update activity occupancy
+                            await db.execute(
+                                "UPDATE activities SET currentOccupancy = currentOccupancy + 1 WHERE id = ?",
+                                [token.activityId]
+                            );
+                        } else {
+                            // No capacity - put in queue
+                            await db.execute(
+                                "UPDATE tokens SET status = 'queue' WHERE id = ?",
+                                [token.id]
+                            );
+                        }
+                    }
                     payment.status = 'completed';
                 } else if (paychanguStatus === 'failed' || paychanguStatus === 'cancelled') {
                     await db.execute(

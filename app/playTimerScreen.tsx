@@ -11,17 +11,34 @@ import { useStore } from './store';
 export default function PlayTimerScreen() {
     const router = useRouter();
     const { tokenId } = useLocalSearchParams<{ tokenId: string }>();
-    const { tokens } = useStore();
+    const { tokens, fetchTokens, profile } = useStore();
     const [timeLeft, setTimeLeft] = useState('00:08');
     const [isFinished, setIsFinished] = useState(false);
     const notificationSentRef = useRef(false);
 
     const token = tokens.find(t => t.id.toString() === tokenId);
 
+    // Fallback session duration if backend expiresAt is not available
+    // Uncomment to use frontend-based timer instead of backend sync
+    // const SESSION_DURATION_MS = 60 * 1000; // 1 minute
+    // Sample values:
+    // - 30 * 1000 = 30 seconds (quick testing)
+    // - 60 * 1000 = 1 minute (recommended testing)
+    // - 5 * 60 * 1000 = 5 minutes (short sessions)
+    // - 10 * 60 * 1000 = 10 minutes (standard)
+    // - 15 * 60 * 1000 = 15 minutes (extended)
+
     /*
      * Timer uses actual session duration from backend (expiresAt)
-     * Session duration is 30 seconds from when token becomes 'ready' (in_use)
+     * Session duration is 1 minute from when token becomes 'in_use' (session started)
+     * Refetch token data on mount to ensure we have the latest expiresAt
      */
+    useEffect(() => {
+        if (profile?.id) {
+            fetchTokens(profile.id.toString());
+        }
+    }, [profile?.id, fetchTokens]);
+
     useEffect(() => {
         if (!token?.expiresAt) return;
 

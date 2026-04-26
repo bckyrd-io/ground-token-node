@@ -11,12 +11,13 @@ interface Token {
     id: string;
     name: string;
     code: string;
-    status: string;
+    status: 'queue' | 'ready' | 'in_use' | 'completed' | 'expired';
     queuePosition?: string;
     qrImage: string;
     username?: string;
     createdAt?: string;
     expiresAt?: string;
+    activityType?: 'play' | 'food';
 }
 
 interface Activity {
@@ -42,7 +43,7 @@ export default function CapacityControlScreen() {
             fetchStaffActivity(profile.id);
         }
         fetchData();
-        const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+        const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds for responsive updates
         return () => clearInterval(interval);
     }, [profile?.id, fetchStaffActivity]);
 
@@ -111,47 +112,64 @@ export default function CapacityControlScreen() {
     
     console.log('Activity tokens:', activityTokens.length);
 
-    // Get queue tokens (waiting) and active tokens (in use) for this activity
+    // Get queue tokens (waiting), active tokens (ready/in_use), and completed/expired tokens for this activity
     const queueTokens = activityTokens.filter(token => token.status === 'queue');
-    const activeTokens = activityTokens.filter(token => token.status === 'ready');
+    const activeTokens = activityTokens.filter(token => token.status === 'ready' || token.status === 'in_use');
+    const completedTokens = activityTokens.filter(token => token.status === 'completed');
+    const expiredTokens = activityTokens.filter(token => token.status === 'expired');
     
     console.log('Queue tokens:', queueTokens.length);
     console.log('Active tokens:', activeTokens.length);
 
-    // Calculate occupancy for the assigned activity
-    const totalOccupancy = staffActivity ? staffActivity.currentOccupancy : 0;
+    // Calculate occupancy from actual tokens being displayed (ready + in_use)
+    // This ensures the occupancy card always matches the actual visitor list
+    const totalOccupancy = activeTokens.length;
     const totalCapacity = staffActivity ? staffActivity.capacity : 0;
     const occupancyPercentage = totalCapacity > 0 ? Math.round((totalOccupancy / totalCapacity) * 100) : 0;
     const remainingSpots = totalCapacity - totalOccupancy;
 
+    // Fallback session duration for time remaining calculation
+    // Uncomment to use instead of backend expiresAt
+    // const SESSION_DURATION_MS = 60 * 1000; // 1 minute
+    // Sample values: 30*1000, 60*1000, 5*60*1000, 10*60*1000, 15*60*1000
+
     // Calculate time remaining for each token
     const getSessionTimeRemaining = (token: Token) => {
-        if (!token.createdAt) {
-            // Fallback for demo if no timestamp
-            const hash = token.code.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            const minutes = 30 + (hash % 90);
-            return `${Math.floor(minutes / 60)}:${(minutes % 60).toString().padStart(2, '0')} left`;
+        // Handle different statuses
+        if (token.status === 'ready') return 'Ready';
+        if (token.status === 'completed') return 'Completed';
+        if (token.status === 'expired') return 'Expired';
+        if (token.status === 'queue') return null; // Queue position handled separately
+
+        // Only 'in_use' tokens should have a countdown
+        if (token.status === 'in_use') {
+            if (!token.expiresAt) return 'Active';
+
+            const now = new Date();
+            const expires = new Date(token.expiresAt);
+            const diffMs = expires.getTime() - now.getTime();
+
+            if (diffMs <= 0) return 'Expired';
+
+            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')} left`;
+            } else {
+                return `${minutes}:${seconds.toString().padStart(2, '0')} left`;
+            }
         }
 
-        const now = new Date();
-        const created = new Date(token.createdAt);
-        const expires = token.expiresAt ? new Date(token.expiresAt) : new Date(created.getTime() + 30 * 1000); // 30 seconds default
-
-        const diffMs = expires.getTime() - now.getTime();
-        if (diffMs <= 0) return 'Expired';
-
-        const hours = Math.floor(diffMs / (1000 * 60 * 60));
-        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-        if (hours > 0) {
-            return `${hours}:${minutes.toString().padStart(2, '0')} left`;
-        } else {
-            return `${minutes}:${(Math.floor((diffMs % (1000 * 60)) / 1000)).toString().padStart(2, '0')} left`;
-        }
+        return null;
     };
 
-    const getTimeColor = (timeRemaining: string) => {
+    const getTimeColor = (timeRemaining: string | null) => {
+        if (!timeRemaining) return COLORS.primary;
         if (timeRemaining === 'Expired') return COLORS.red600;
+        if (timeRemaining === 'Completed') return '#9ca3af'; // Gray for completed
+        if (timeRemaining === 'Ready') return COLORS.primary; // Green for ready
         const parts = timeRemaining.split(':');
         const minutes = parseInt(parts[0]) * 60 + parseInt(parts[1]);
         if (minutes < 15) return COLORS.red600;
@@ -159,20 +177,32 @@ export default function CapacityControlScreen() {
         return COLORS.primary;
     };
 
-    // Combine queue and active tokens into a unified visitor list
-    // Sort: queue first (by queue position), then active (by time remaining)
-    const allVisitorTokens = [...queueTokens, ...activeTokens].sort((a, b) => {
-        // Queue tokens come first
-        if (a.status === 'queue' && b.status !== 'queue') return -1;
-        if (a.status !== 'queue' && b.status === 'queue') return 1;
-        
+    // Combine queue, active, completed, and expired tokens into a unified visitor list
+    // Sort order: queue → ready/in_use → completed → expired
+    const allVisitorTokens = [...queueTokens, ...activeTokens, ...completedTokens, ...expiredTokens].sort((a, b) => {
+        // Define status priority (ready and in_use have same priority)
+        const statusPriority = { 'queue': 0, 'ready': 1, 'in_use': 1, 'completed': 2, 'expired': 3 };
+        const priorityA = statusPriority[a.status as keyof typeof statusPriority] ?? 99;
+        const priorityB = statusPriority[b.status as keyof typeof statusPriority] ?? 99;
+
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+
         // Within queue, sort by queue position
         if (a.status === 'queue' && b.status === 'queue') {
             const posA = parseInt(a.queuePosition || '0');
             const posB = parseInt(b.queuePosition || '0');
             return posA - posB;
         }
-        
+
+        // Within ready/in_use, sort by time remaining (earliest expiry first)
+        if ((a.status === 'ready' || a.status === 'in_use') && (b.status === 'ready' || b.status === 'in_use')) {
+            const timeA = a.expiresAt ? new Date(a.expiresAt).getTime() : Infinity;
+            const timeB = b.expiresAt ? new Date(b.expiresAt).getTime() : Infinity;
+            return timeA - timeB;
+        }
+
         return 0;
     });
 
@@ -254,29 +284,46 @@ export default function CapacityControlScreen() {
                 ) : (
                     allVisitorTokens.map((token) => {
                         const isQueue = token.status === 'queue';
+                        const isReady = token.status === 'ready';
+                        const isInUse = token.status === 'in_use';
+                        const isCompleted = token.status === 'completed';
+                        const isExpired = token.status === 'expired';
                         const isFood = token.activityType === 'food';
                         const timeRemaining = !isQueue ? getSessionTimeRemaining(token) : null;
 
                         // Food uses orange colors, play uses green colors
-                        const iconBgColor = isQueue
-                            ? (isFood ? 'rgba(249,115,22,0.1)' : 'rgba(255,152,0,0.1)')
-                            : (isFood ? 'rgba(249,115,22,0.1)' : 'rgba(46,125,50,0.1)');
-                        const iconColor = isQueue
-                            ? (isFood ? '#f97316' : COLORS.orange600)
-                            : (isFood ? '#f97316' : COLORS.primary);
-                        const badgeBgColor = isQueue
-                            ? (isFood ? 'rgba(249,115,22,0.1)' : COLORS.orange100)
-                            : (isFood ? 'rgba(249,115,22,0.1)' : COLORS.green100);
-                        const badgeTextColor = isQueue
-                            ? (isFood ? '#c2410c' : COLORS.orange700)
-                            : (isFood ? '#c2410c' : COLORS.green700);
+                        // Completed/Expired use gray/red colors
+                        // ready/in_use are treated the same (active sessions)
+                        let iconBgColor, iconColor, badgeBgColor, badgeTextColor;
+                        if (isCompleted) {
+                            iconBgColor = 'rgba(156,163,175,0.1)';
+                            iconColor = '#9ca3af';
+                            badgeBgColor = 'rgba(156,163,175,0.1)';
+                            badgeTextColor = '#6b7280';
+                        } else if (isExpired) {
+                            iconBgColor = 'rgba(239,68,68,0.1)';
+                            iconColor = COLORS.red600;
+                            badgeBgColor = 'rgba(239,68,68,0.1)';
+                            badgeTextColor = '#dc2626';
+                        } else if (isQueue) {
+                            iconBgColor = isFood ? 'rgba(249,115,22,0.1)' : 'rgba(255,152,0,0.1)';
+                            iconColor = isFood ? '#f97316' : COLORS.orange600;
+                            badgeBgColor = isFood ? 'rgba(249,115,22,0.1)' : COLORS.orange100;
+                            badgeTextColor = isFood ? '#c2410c' : COLORS.orange700;
+                        } else {
+                            // ready or in_use (active sessions)
+                            iconBgColor = isFood ? 'rgba(249,115,22,0.1)' : 'rgba(46,125,50,0.1)';
+                            iconColor = isFood ? '#f97316' : COLORS.primary;
+                            badgeBgColor = isFood ? 'rgba(249,115,22,0.1)' : COLORS.green100;
+                            badgeTextColor = isFood ? '#c2410c' : COLORS.green700;
+                        }
 
                         return (
                             <View key={token.id} style={styles.sessionCard}>
                                 <View style={styles.sessionLeft}>
                                     <View style={[styles.sessionIcon, { backgroundColor: iconBgColor }]}>
                                         <MaterialIcons
-                                            name={isFood ? "restaurant" : (isQueue ? "schedule" : "child-care")}
+                                            name={isCompleted ? "check-circle" : isExpired ? "cancel" : (isFood ? "restaurant" : (isQueue ? "schedule" : "child-care"))}
                                             size={20}
                                             color={iconColor}
                                         />
@@ -287,7 +334,11 @@ export default function CapacityControlScreen() {
                                             {/* Status Badge */}
                                             <View style={[styles.statusBadge, { backgroundColor: badgeBgColor }]}>
                                                 <Text style={[styles.statusBadgeText, { color: badgeTextColor }]}>
-                                                    {isFood
+                                                    {isCompleted
+                                                        ? 'COMPLETED'
+                                                        : isExpired
+                                                        ? 'EXPIRED'
+                                                        : isFood
                                                         ? (isQueue ? 'ORDERED' : 'SERVED')
                                                         : (isQueue ? 'WAITING' : 'ACTIVE')
                                                     }
@@ -306,14 +357,22 @@ export default function CapacityControlScreen() {
                                             </Text>
                                             <Text style={styles.sessionLabel}>{isFood ? 'Order #' : 'Queue #'}</Text>
                                         </>
-                                    ) : (
+                                    ) : isReady ? (
                                         <>
-                                            <Text style={[styles.sessionTime, { color: getTimeColor(timeRemaining || '') }]}>
-                                                {isFood ? 'Served' : timeRemaining}
+                                            <Text style={[styles.sessionTime, { color: getTimeColor(timeRemaining) }]}>
+                                                {timeRemaining}
                                             </Text>
-                                            <Text style={styles.sessionLabel}>{isFood ? 'Status' : 'Time Left'}</Text>
+                                            <Text style={styles.sessionLabel}>Status</Text>
                                         </>
-                                    )}
+                                    ) : isInUse ? (
+                                        <>
+                                            <Text style={[styles.sessionTime, { color: getTimeColor(timeRemaining) }]}>
+                                                {timeRemaining}
+                                            </Text>
+                                            <Text style={styles.sessionLabel}>Time Left</Text>
+                                        </>
+                                    ) : null}
+                                    {/* completed and expired tokens don't show right side text - badge is sufficient */}
                                 </View>
                             </View>
                         );
