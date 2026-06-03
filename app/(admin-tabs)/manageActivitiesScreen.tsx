@@ -1,13 +1,15 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useStore } from '../store';
+import { AddActivitySheet } from '@/components/screens/AddActivitySheet';
 
 export default function ManageActivitiesScreen() {
-    const router = useRouter();
+    const addActivityRef = useRef<BottomSheetModal>(null);
     const { adminActivities, fetchAdminActivities } = useStore();
 
     useFocusEffect(
@@ -17,11 +19,12 @@ export default function ManageActivitiesScreen() {
     );
 
     return (
+        <>
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
  
 
             {/* Add Button */}
-            <TouchableOpacity style={styles.addButton} activeOpacity={0.7} onPress={() => router.push('/addActivityScreen')}>
+            <TouchableOpacity style={styles.addButton} activeOpacity={0.7} onPress={() => addActivityRef.current?.present()}>
                 <MaterialIcons name="add" size={20} color={COLORS.primary} />
                 <Text style={styles.addButtonText}>Add New Activity</Text>
             </TouchableOpacity>
@@ -45,6 +48,8 @@ export default function ManageActivitiesScreen() {
                 ))}
             </View>
         </ScrollView>
+        <AddActivitySheet ref={addActivityRef} />
+        </>
     );
 }
 

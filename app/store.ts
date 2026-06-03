@@ -22,6 +22,8 @@ type Activity = {
     waitColor: string;
     image: string;
     type: 'play' | 'food';
+    latitude?: number | null;
+    longitude?: number | null;
 };
 
 type AdminActivity = {
@@ -30,6 +32,8 @@ type AdminActivity = {
     capacity: string;
     percent: number;
     image: string;
+    latitude?: number | null;
+    longitude?: number | null;
 };
 
 type ActivityDetail = {
@@ -44,6 +48,8 @@ type ActivityDetail = {
     image: string;
     safetyRules: string[];
     type: 'play' | 'food';
+    latitude?: number | null;
+    longitude?: number | null;
 };
 
 type Token = {
@@ -78,6 +84,8 @@ type StaffActivity = {
     image: string;
     safetyRules: string[];
     isCapacityControlOpen?: boolean | number;
+    latitude?: number | null;
+    longitude?: number | null;
 };
 
 type FeedbackOptions = {
@@ -101,6 +109,7 @@ type StoreState = {
     fetchAdminActivities: () => Promise<void>;
     fetchActivityDetail: (id: string) => Promise<void>;
     fetchTokens: (userId: string) => Promise<void>;
+    updateToken: (tokenId: string, updates: Partial<Token>) => void;
     fetchStaff: () => Promise<void>;
     fetchStaffActivity: (staffId: string) => Promise<void>;
     fetchFeedbackOptions: () => Promise<void>;
@@ -127,7 +136,7 @@ export const useStore = create<StoreState>((set, get) => ({
         role: 'visitor',
         createdAt: new Date().toISOString()
     },
-    serverIp: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000',
+    serverIp: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.43.2:5000',
     activities: [],
     adminActivities: [],
     activityDetails: {},
@@ -255,6 +264,15 @@ export const useStore = create<StoreState>((set, get) => ({
         } catch (error) {
             console.error('Failed to fetch tokens:', error);
         }
+    },
+
+    // Update a specific token's data (e.g., after starting a session)
+    updateToken: (tokenId: string, updates: Partial<Token>) => {
+        set((state) => ({
+            tokens: state.tokens.map((t) =>
+                t.id === tokenId ? { ...t, ...updates } : t
+            ),
+        }));
     },
 
     // Fetch staff

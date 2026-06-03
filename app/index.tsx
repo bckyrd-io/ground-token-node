@@ -20,25 +20,25 @@ const { width } = Dimensions.get('window');
 const SLIDES = [
     {
         id: '1',
-        image: require('../assets/images/gelato1.jpg'),
+        image: require('../assets/images/ground1.jpg'),
         title: 'Token Access Control',
-        description: 'System for Gelato play area and food.',
+        description: 'System for ground play area and food.',
     },
     {
         id: '2',
-        image: require('../assets/images/gelato2.jpg'),
+        image: require('../assets/images/ground2.jpg'),
         title: 'Fun Play Zones',
         description: 'Safe and exciting play areas designed for kids of all ages.',
     },
     {
         id: '3',
-        image: require('../assets/images/gelato3.jpg'),
+        image: require('../assets/images/ground3.jpg'),
         title: 'Sweet Treats',
         description: 'A variety of flavors and toppings to satisfy every craving.',
     },
     {
         id: '4',
-        image: require('../assets/images/gelato4.jpg'),
+        image: require('../assets/images/ground4.jpg'),
         title: 'Family Friendly',
         description: 'The perfect destination for family fun and memorable moments.',
     },
@@ -90,7 +90,7 @@ export default function OnboardingScreen() {
             <View style={styles.container}>
                 {/* Header Branding */}
                 <View style={styles.header}>
-                    <Text style={styles.brandName}>Gelato Carnival</Text>
+                    <Text style={styles.brandName}>Ground Token</Text>
                     <Text style={styles.brandTagline}>Safe & Fun Play Access</Text>
                 </View>
 

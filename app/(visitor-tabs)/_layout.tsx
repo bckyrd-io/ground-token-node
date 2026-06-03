@@ -1,14 +1,20 @@
+import { COLORS } from '@/constants/theme';
 import { initializeNotifications } from '@/utils/notifications';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { useStore } from '../store';
+import { AccountSheet } from '@/components/screens/AccountSheet';
+import { AboutSheet } from '@/components/screens/AboutSheet';
 
 interface MenuModalProps {
     visible: boolean;
     onClose: () => void;
     onLogout: () => void;
+    onAccount: () => void;
+    onAbout: () => void;
 }
 
 // Confirm logout modal component
@@ -42,28 +48,55 @@ const ConfirmLogoutModal: React.FC<ConfirmLogoutModalProps> = ({ visible, onCanc
     </Modal>
 );
 
-// Simple menu component
-const MenuModal: React.FC<MenuModalProps> = ({ visible, onClose, onLogout }) => (
-    <Modal
-        transparent
-        visible={visible}
-        animationType="fade"
-        onRequestClose={onClose}
-    >
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-            <View style={styles.menuContainer}>
-                <TouchableOpacity style={styles.menuItem} onPress={onLogout}>
-                    <MaterialIcons name="logout" size={20} color="#dc2626" />
-                    <Text style={styles.menuItemText}>Logout</Text>
+// Simple menu component (now rendered as a bottom sheet modal)
+const MenuComponent = React.forwardRef<BottomSheetModal, Omit<MenuModalProps, 'visible'>>(({ onClose, onLogout, onAccount, onAbout }, ref) => {
+    const snapPoints = useMemo(() => ['90%'], []);
+    
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+        ),
+        []
+    );
+
+    return (
+        <BottomSheetModal
+            ref={ref}
+            index={0}
+            snapPoints={snapPoints}
+            enableDynamicSizing={false}
+            backdropComponent={renderBackdrop}
+            enablePanDownToClose
+            onDismiss={onClose}
+            style={styles.menuSheet}
+            backgroundStyle={styles.menuSheetBackground}
+            handleIndicatorStyle={styles.menuHandle}
+        >
+            <BottomSheetView style={styles.menuContainerBottomSheet}>
+                <TouchableOpacity style={styles.menuItem} onPress={onAccount}>
+                    <Text style={styles.menuItemText}>Profile</Text>
+                    <MaterialIcons name="chevron-right" size={20} color={COLORS.slate600} />
                 </TouchableOpacity>
-            </View>
-        </TouchableOpacity>
-    </Modal>
-);
+                <View style={styles.menuDivider} />
+                <TouchableOpacity style={styles.menuItem} onPress={onAbout}>
+                    <Text style={styles.menuItemText}>About</Text>
+                    <MaterialIcons name="chevron-right" size={20} color={COLORS.slate600} />
+                </TouchableOpacity>
+                <View style={styles.menuDivider} />
+                <TouchableOpacity style={styles.menuItem} onPress={onLogout}>
+                    <Text style={[styles.menuItemText, styles.logoutText]}>Logout</Text>
+                    <MaterialIcons name="chevron-right" size={20} color={COLORS.red600} />
+                </TouchableOpacity>
+            </BottomSheetView>
+        </BottomSheetModal>
+    );
+});
 
 export default function VisitorTabsLayout() {
     const router = useRouter();
-    const [showMenu, setShowMenu] = useState(false);
+    const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+    const accountSheetRef = useRef<BottomSheetModal>(null);
+    const aboutSheetRef = useRef<BottomSheetModal>(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const logout = useStore((state) => state.logout);
 
@@ -72,8 +105,18 @@ export default function VisitorTabsLayout() {
         initializeNotifications();
     }, []);
 
+    const handleAccountPress = () => {
+        bottomSheetModalRef.current?.dismiss();
+        setTimeout(() => accountSheetRef.current?.present(), 300);
+    };
+
+    const handleAboutPress = () => {
+        bottomSheetModalRef.current?.dismiss();
+        setTimeout(() => aboutSheetRef.current?.present(), 300);
+    };
+
     const handleLogoutPress = () => {
-        setShowMenu(false);
+        bottomSheetModalRef.current?.dismiss();
         setShowConfirmModal(true);
     };
 
@@ -91,20 +134,20 @@ export default function VisitorTabsLayout() {
         <>
             <Tabs
                 screenOptions={{
-                    headerStyle: { backgroundColor: '#B4353D' },
+                    headerStyle: { backgroundColor: '#00c951' },
                     headerTintColor: '#fff',
                     headerTitleStyle: { fontWeight: '700', fontSize: 20 },
                     headerTitleAlign: 'left',
                     headerShadowVisible: false,
                     headerRight: () => (
-                        <TouchableOpacity 
-                            style={{ padding: 8, marginRight: 8 }} 
-                            onPress={() => setShowMenu(true)}
+                        <TouchableOpacity
+                            style={{ padding: 8, marginRight: 8 }}
+                            onPress={() => bottomSheetModalRef.current?.present()}
                         >
-                            <MaterialIcons name="more-vert" size={24} color="white" />
+                            <MaterialIcons name='more-vert' size={24} color="white" />
                         </TouchableOpacity>
                     ),
-                    tabBarActiveTintColor: '#B4353D',
+                    tabBarActiveTintColor: '#00c951',
                     tabBarInactiveTintColor: '#94a3b8',
                     tabBarStyle: {
                         backgroundColor: '#ffffff',
@@ -123,10 +166,10 @@ export default function VisitorTabsLayout() {
                 <Tabs.Screen
                     name="activityCatalogScreen"
                     options={{
-                        title: 'Gelato',
-                        tabBarLabel: 'Catalog',
+                        title: 'Ground Token',
+                        tabBarLabel: 'Play',
                         tabBarIcon: ({ color, size }) => (
-                            <MaterialIcons name="home" size={size} color={color} />
+                            <MaterialIcons name="sports-basketball" size={size} color={color} />
                         ),
                     }}
                 />
@@ -134,39 +177,45 @@ export default function VisitorTabsLayout() {
                 <Tabs.Screen
                     name="orderFoodScreen"
                     options={{
-                        title: 'Gelato',
+                        title: 'Ground Token',
                         tabBarLabel: 'Food',
                         tabBarIcon: ({ color, size }) => (
-                            <MaterialIcons name="restaurant" size={size} color={color} />
+                            <MaterialIcons name="local-pizza" size={size} color={color} />
                         ),
                     }}
                 />
+
+                <Tabs.Screen
+                    name="locateScreen"
+                    options={{
+                        title: 'Ground Token',
+                        tabBarLabel: 'Locate',
+                        tabBarIcon: ({ color, size }) => (
+                            <MaterialIcons name="location-on" size={size} color={color} />
+                        ),
+                    }}
+                />
+
                 <Tabs.Screen
                     name="myTokensScreen"
                     options={{
-                        title: 'Gelato',
+                        title: 'Ground Token',
                         tabBarLabel: 'Tokens',
                         tabBarIcon: ({ color, size }) => (
-                            <MaterialIcons name="bookmark-border" size={size} color={color} />
-                        ),
-                    }}
-                />
-                <Tabs.Screen
-                    name="accountScreen"
-                    options={{
-                        title: 'Gelato',
-                        tabBarLabel: 'Account',
-                        tabBarIcon: ({ color, size }) => (
-                            <MaterialIcons name="person" size={size} color={color} />
+                            <MaterialIcons name="diamond" size={size} color={color} />
                         ),
                     }}
                 />
             </Tabs>
-            <MenuModal 
-                visible={showMenu} 
-                onClose={() => setShowMenu(false)} 
+            <MenuComponent
+                ref={bottomSheetModalRef}
+                onClose={() => {}}
                 onLogout={handleLogoutPress}
+                onAccount={handleAccountPress}
+                onAbout={handleAboutPress}
             />
+            <AccountSheet ref={accountSheetRef} />
+            <AboutSheet ref={aboutSheetRef} />
             <ConfirmLogoutModal
                 visible={showConfirmModal}
                 onCancel={handleCancelLogout}
@@ -183,23 +232,52 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    menuContainer: {
-        backgroundColor: 'white',
-        borderRadius: 12,
-        boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
-        minWidth: 180,
-        overflow: 'hidden',
+    menuContainerBottomSheet: {
+        paddingBottom: 24,
+    },
+    menuSheet: {
+        shadowColor: 'transparent',
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
+    },
+    menuSheetBackground: {
+        backgroundColor: COLORS.white,
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 18,
+    },
+    menuHandle: {
+        backgroundColor: COLORS.slate300,
+        width: 44,
+    },
+    menuTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: COLORS.slate900,
+        paddingHorizontal: 24,
+        paddingTop: 4,
+        paddingBottom: 12,
     },
     menuItem: {
         flexDirection: 'row',
+        justifyContent:'space-between',
         alignItems: 'center',
-        padding: 16,
+        paddingHorizontal: 24,
+        paddingVertical: 18,
         gap: 12,
+    },
+    menuDivider: {
+        height: 1,
+        backgroundColor: COLORS.slate200,
+        marginHorizontal: 24,
     },
     menuItemText: {
         fontSize: 16,
-        color: '#dc2626',
-        fontWeight: '500',
+        color: COLORS.slate800,
+        fontWeight: '600',
+    },
+    logoutText: {
+        color: COLORS.red600,
     },
     confirmContainer: {
         backgroundColor: 'white',

@@ -1,13 +1,17 @@
 import { COLORS } from '@/constants/theme';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useStore } from '../store';
+import { ActivityDetailSheet } from '@/components/screens/ActivityDetailSheet';
+import { ConfirmPaymentSheet } from '@/components/screens/ConfirmPaymentSheet';
 
 export default function OrderFoodScreen() {
-    const router = useRouter();
     const { activities, fetchActivities } = useStore();
+    const activityDetailRef = useRef<BottomSheetModal>(null);
+    const confirmPaymentRef = useRef<BottomSheetModal>(null);
+    const [selectedFoodId, setSelectedFoodId] = useState<string>('');
 
     // Filter only food items
     const foodItems = activities.filter(activity => activity.type === 'food');
@@ -17,6 +21,7 @@ export default function OrderFoodScreen() {
     }, [fetchActivities]);
 
     return (
+        <>
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             <View style={styles.header}>
                 <Text style={styles.headerSubtitle}>Browse and order delicious meals</Text>
@@ -31,7 +36,10 @@ export default function OrderFoodScreen() {
                     <TouchableOpacity
                         key={food.id}
                         style={styles.card}
-                        onPress={() => router.push({ pathname: '/activityDetailScreen', params: { id: food.id } })}
+                        onPress={() => {
+                            setSelectedFoodId(String(food.id));
+                            activityDetailRef.current?.present();
+                        }}
                         activeOpacity={0.7}
                     >
                         {/* Image */}
@@ -56,7 +64,10 @@ export default function OrderFoodScreen() {
                             <Text style={styles.cardDescription}>{food.description}</Text>
                             <TouchableOpacity
                                 style={styles.orderButton}
-                                onPress={() => router.push({ pathname: '/confirmPaymentScreen', params: { id: food.id } })}
+                                onPress={() => {
+                                    setSelectedFoodId(String(food.id));
+                                    confirmPaymentRef.current?.present();
+                                }}
                             >
                                 <Text style={styles.orderButtonText}>Order Food</Text>
                             </TouchableOpacity>
@@ -65,8 +76,12 @@ export default function OrderFoodScreen() {
                 ))
             )}
         </ScrollView>
+        <ActivityDetailSheet ref={activityDetailRef} activityId={selectedFoodId} />
+        <ConfirmPaymentSheet ref={confirmPaymentRef} activityId={selectedFoodId} />
+        </>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {

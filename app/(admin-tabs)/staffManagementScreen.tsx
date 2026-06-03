@@ -1,12 +1,14 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useStore } from '../store';
+import { RegisterStaffSheet } from '@/components/screens/RegisterStaffSheet';
 
 export default function StaffManagementScreen() {
-    const router = useRouter();
+    const registerStaffRef = useRef<BottomSheetModal>(null);
     const { staff, fetchStaff } = useStore();
 
     useFocusEffect(
@@ -19,6 +21,7 @@ export default function StaffManagementScreen() {
     const activeStaffCount = staff.filter(member => member.status === 'Active').length;
 
     return (
+        <>
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             {/* On Duty Card */}
             <View style={styles.dutyCard}>
@@ -30,7 +33,7 @@ export default function StaffManagementScreen() {
             <TouchableOpacity
                 style={styles.registerButton}
                 activeOpacity={0.7}
-                onPress={() => router.push('/registerStaffScreen')}
+                onPress={() => registerStaffRef.current?.present()}
             >
                 <MaterialIcons name="add" size={20} color={COLORS.primary} />
                 <Text style={styles.registerButtonText}>Register New Staff</Text>
@@ -71,6 +74,8 @@ export default function StaffManagementScreen() {
                 })}
             </View>
         </ScrollView>
+        <RegisterStaffSheet ref={registerStaffRef} />
+        </>
     );
 }
 

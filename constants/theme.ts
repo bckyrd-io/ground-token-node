@@ -27,9 +27,9 @@ export const Colors = {
   },
 };
 
-//'#2E7D32',primary color old
+//'#00c951',primary color old
 export const COLORS = {
-  primary: '#B4353D',
+  primary: '#00c951',
   white: '#ffffff',
   black: '#000000',
   error: '#d32f2f',
@@ -93,3 +93,16 @@ export const Fonts = Platform.select({
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });
+
+export const FORM_INPUT_TOKENS = {
+  height: 56,
+  borderWidth: 1,
+  borderRadius: 12,
+  borderColor: COLORS.slate300,
+  backgroundColor: COLORS.slate50,
+  textColor: COLORS.slate900,
+  placeholderColor: COLORS.slate400,
+  fontSize: 16,
+  horizontalPadding: 16,
+  iconLeftPadding: 44,
+} as const;

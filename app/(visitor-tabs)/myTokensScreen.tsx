@@ -1,14 +1,20 @@
 import { COLORS } from '@/constants/theme';
 import { showImmediateNotification } from '@/utils/notifications';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useStore } from '../store';
+import { PlayTimerSheet } from '@/components/screens/PlayTimerSheet';
+import { RatingFeedbackSheet } from '@/components/screens/RatingFeedbackSheet';
 
 export default function MyTokensScreen() {
-    const { tokens, fetchTokens, profile, serverIp } = useStore();
-    const router = useRouter();
+    const { tokens, fetchTokens, updateToken, profile, serverIp } = useStore();
+    const playTimerRef = useRef<BottomSheetModal>(null);
+    const ratingFeedbackRef = useRef<BottomSheetModal>(null);
+    const [selectedTokenId, setSelectedTokenId] = useState<string>('');
+    const [selectedActivityId, setSelectedActivityId] = useState<string>('');
     const previousTokensRef = useRef(tokens);
     const notifiedTokenIdsRef = useRef<Set<string>>(new Set());
     const navigatedTokenIdsRef = useRef<Set<string>>(new Set());
@@ -32,17 +38,18 @@ export default function MyTokensScreen() {
                 }
             }
 
-            // Auto-navigate to playTimerScreen when token becomes 'in_use' (session started by staff scan)
+            // Auto-present PlayTimerSheet when token becomes 'in_use'
             if (previousToken && previousToken.status === 'ready' && token.status === 'in_use') {
                 if (token.activityType !== 'food' && !navigatedTokenIdsRef.current.has(token.id)) {
-                    router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
+                    setSelectedTokenId(String(token.id));
+                    setTimeout(() => playTimerRef.current?.present(), 300);
                     navigatedTokenIdsRef.current.add(token.id);
                 }
             }
         });
 
         previousTokensRef.current = tokens;
-    }, [tokens, router]);
+    }, [tokens]);
 
     useFocusEffect(
         useCallback(() => {
@@ -61,6 +68,7 @@ export default function MyTokensScreen() {
     );
 
     return (
+        <>
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             {tokens.map((token) => (
                 <TouchableOpacity
@@ -70,7 +78,8 @@ export default function MyTokensScreen() {
                     onPress={async () => {
                         if (token.status === 'ready') {
                             if (token.activityType === 'food') {
-                                router.push({ pathname: '/ratingFeedbackScreen', params: { activityId: token.activityId } });
+                                setSelectedActivityId(String(token.activityId));
+                                setTimeout(() => ratingFeedbackRef.current?.present(), 100);
                             } else {
                                 // Start session by calling backend endpoint
                                 try {
@@ -80,8 +89,16 @@ export default function MyTokensScreen() {
                                     const result = await response.json();
 
                                     if (result.success) {
-                                        // Session started successfully, navigate to playTimerScreen
-                                        router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
+                                        // Update token with expiresAt from response so timer has correct data
+                                        if (result.token?.expiresAt) {
+                                            updateToken(token.id, {
+                                                status: 'in_use',
+                                                expiresAt: result.token.expiresAt
+                                            });
+                                        }
+                                        // Session started successfully, open PlayTimerSheet
+                                        setSelectedTokenId(String(token.id));
+                                        setTimeout(() => playTimerRef.current?.present(), 100);
                                     } else {
                                         console.error('Failed to start session:', result.message);
                                     }
@@ -90,9 +107,10 @@ export default function MyTokensScreen() {
                                 }
                             }
                         } else if (token.status === 'in_use') {
-                            // Session already started, navigate directly to playTimerScreen
+                            // Session already started, show PlayTimerSheet directly
                             if (token.activityType !== 'food') {
-                                router.push({ pathname: '/playTimerScreen', params: { tokenId: token.id } });
+                                setSelectedTokenId(String(token.id));
+                                setTimeout(() => playTimerRef.current?.present(), 100);
                             }
                         }
                     }}
@@ -140,6 +158,16 @@ export default function MyTokensScreen() {
                 Show the QR code to the attendant when your number is called, your order is ready, or your status is 'Ready'.
             </Text>
         </ScrollView>
+        <PlayTimerSheet
+            ref={playTimerRef}
+            tokenId={selectedTokenId}
+            onFinish={(activityId) => {
+                setSelectedActivityId(String(activityId));
+                setTimeout(() => ratingFeedbackRef.current?.present(), 400);
+            }}
+        />
+        <RatingFeedbackSheet ref={ratingFeedbackRef} activityId={selectedActivityId} />
+        </>
     );
 }
 

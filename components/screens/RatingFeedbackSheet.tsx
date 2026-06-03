@@ -1,17 +1,19 @@
-import { COLORS } from '@/constants/theme';
+import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, forwardRef } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useStore } from './store';
-import { showToast } from './toast';
-import { useLocalSearchParams } from 'expo-router';
+import { useStore } from '@/app/store';
+import { showToast } from '@/app/toast';
+import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
-export default function RatingFeedbackScreen() {
-    const router = useRouter();
-    const { activityId } = useLocalSearchParams<{ activityId: string }>();
+export const RatingFeedbackSheet = forwardRef<any, { activityId?: string }>((props, ref) => {
+    const closeSheet = () => {
+        if (ref && 'current' in ref && ref.current) ref.current.dismiss();
+    };
+    const activityId = props.activityId || '1';
     const [rating, setRating] = useState(4);
     const [comment, setComment] = useState('');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -31,7 +33,7 @@ export default function RatingFeedbackScreen() {
         setIsLoading(true);
 
         try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.43.2:5000';
 
             // Mock user and activity IDs - in production, get from auth/params
             const userId = profile?.id;
@@ -54,7 +56,7 @@ export default function RatingFeedbackScreen() {
 
             if (response.ok) {
                 showToast('Thank you for your feedback!', 'success');
-                setTimeout(() => router.back(), 1500);
+                setTimeout(() => closeSheet(), 1500);
             } else {
                 showToast(data.error || 'Failed to submit feedback');
             }
@@ -76,95 +78,91 @@ export default function RatingFeedbackScreen() {
 
     if (!feedbackOptions) {
         return (
-            <SafeAreaView style={styles.safeArea}>
-                <Text>Loading...</Text>
-            </SafeAreaView>
+            <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
+                <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+                    <Text>Loading...</Text>
+                </SafeAreaView>
+            </ScreenBottomSheet>
         );
     }
 
     const { quickTags, ratingLabels } = feedbackOptions;
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
-                    <MaterialIcons name="arrow-back" size={24} color={COLORS.slate700} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Rate Your Experience</Text>
-                <View style={{ width: 40 }} />
-            </View>
+        <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
 
-            <View style={styles.content}>
+                <View style={styles.content}>
 
-                {/* Star Rating */}
-                <View style={styles.ratingSection}>
-                    <Text style={styles.ratingLabel}>Tap to rate</Text>
-                    <View style={styles.starsRow}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                            <TouchableOpacity key={star} onPress={() => setRating(star)}>
-                                <MaterialIcons
-                                    name={star <= rating ? 'star' : 'star-border'}
-                                    size={48}
-                                    color={star <= rating ? COLORS.primary : COLORS.slate200}
-                                />
-                            </TouchableOpacity>
-                        ))}
+                    {/* Star Rating */}
+                    <View style={styles.ratingSection}>
+                        <Text style={styles.ratingLabel}>Tap to rate</Text>
+                        <View style={styles.starsRow}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <TouchableOpacity key={star} onPress={() => setRating(star)}>
+                                    <MaterialIcons
+                                        name={star <= rating ? 'star' : 'star-border'}
+                                        size={48}
+                                        color={star <= rating ? COLORS.primary : COLORS.slate200}
+                                    />
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Comment */}
+                    <View style={styles.commentSection}>
+                        <TextInput
+                            style={styles.textArea}
+                            multiline
+                            placeholder="Tell us about your visit, what did kids love most?"
+                            placeholderTextColor={COLORS.slate400}
+                            value={comment}
+                            onChangeText={setComment}
+                            {...(Platform.OS === 'android' && { textAlignVertical: 'top' })}
+                        />
+                    </View>
+
+                    {/* Quick Tags */}
+                    <View style={styles.tagsSection}>
+                        <View style={styles.tagsRow}>
+                            {quickTags.map((tag) => (
+                                <TouchableOpacity
+                                    key={tag}
+                                    style={[
+                                        styles.tag,
+                                        selectedTags.includes(tag) && styles.tagSelected
+                                    ]}
+                                    onPress={() => toggleTag(tag)}
+                                >
+                                    <Text style={[
+                                        styles.tagText,
+                                        selectedTags.includes(tag) && styles.tagTextSelected
+                                    ]}>{tag}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
                     </View>
                 </View>
 
-                {/* Comment */}
-                <View style={styles.commentSection}>
-                    <TextInput
-                        style={styles.textArea}
-                        multiline
-                        placeholder="Tell us about your visit, what did kids love most?"
-                        placeholderTextColor={COLORS.slate400}
-                        value={comment}
-                        onChangeText={setComment}
-                        {...(Platform.OS === 'android' && { textAlignVertical: 'top' })}
-                    />
+                {/* Footer */}
+                <View style={styles.footer}>
+                    <TouchableOpacity
+                        style={styles.submitButton}
+                        activeOpacity={0.9}
+                        onPress={handleSubmit}
+                        disabled={isLoading}
+                    >
+                        <Text style={styles.submitText}>
+                            {isLoading ? 'Submitting...' : 'Submit'}
+                        </Text>
+                        <MaterialIcons name="send" size={20} color={COLORS.white} />
+                    </TouchableOpacity>
                 </View>
-
-                {/* Quick Tags */}
-                <View style={styles.tagsSection}>
-                    <View style={styles.tagsRow}>
-                        {quickTags.map((tag) => (
-                            <TouchableOpacity
-                                key={tag}
-                                style={[
-                                    styles.tag,
-                                    selectedTags.includes(tag) && styles.tagSelected
-                                ]}
-                                onPress={() => toggleTag(tag)}
-                            >
-                                <Text style={[
-                                    styles.tagText,
-                                    selectedTags.includes(tag) && styles.tagTextSelected
-                                ]}>{tag}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-            </View>
-
-            {/* Footer */}
-            <View style={styles.footer}>
-                <TouchableOpacity
-                    style={styles.submitButton}
-                    activeOpacity={0.9}
-                    onPress={handleSubmit}
-                    disabled={isLoading}
-                >
-                    <Text style={styles.submitText}>
-                        {isLoading ? 'Submitting...' : 'Submit'}
-                    </Text>
-                    <MaterialIcons name="send" size={20} color={COLORS.white} />
-                </TouchableOpacity>
-            </View>
-        </SafeAreaView>
+            </SafeAreaView>
+        </ScreenBottomSheet>
     );
-}
+});
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },
@@ -191,9 +189,15 @@ const styles = StyleSheet.create({
     ratingText: { fontSize: 14, color: COLORS.slate400, fontStyle: 'italic', marginTop: 16 },
     commentSection: { width: '100%' },
     textArea: {
-        width: '100%', minHeight: 160, padding: 16,
-        backgroundColor: '#f8fafc', borderWidth: 1, borderColor: COLORS.slate200,
-        borderRadius: 12, fontSize: 16, color: COLORS.slate900,
+        width: '100%',
+        minHeight: 160,
+        padding: 16,
+        backgroundColor: FORM_INPUT_TOKENS.backgroundColor,
+        borderWidth: FORM_INPUT_TOKENS.borderWidth,
+        borderColor: FORM_INPUT_TOKENS.borderColor,
+        borderRadius: FORM_INPUT_TOKENS.borderRadius,
+        fontSize: FORM_INPUT_TOKENS.fontSize,
+        color: FORM_INPUT_TOKENS.textColor,
         ...(Platform.OS === 'android' && { textAlignVertical: 'top' }),
     },
     tagsSection: { width: '100%', marginTop: 24 },

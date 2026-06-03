@@ -1,16 +1,19 @@
-import { COLORS } from '@/constants/theme';
+import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState, forwardRef } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useStore } from './store';
-import { showToast } from './toast';
+import { useStore } from '@/app/store';
+import { showToast } from '@/app/toast';
+import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
-export default function ConfirmPaymentScreen() {
+export const ConfirmPaymentSheet = forwardRef<any, { activityId?: string }>((props, ref) => {
+    const closeSheet = () => {
+        if (ref && 'current' in ref && ref.current) ref.current.dismiss();
+    };
     const router = useRouter();
-    const { id } = useLocalSearchParams<{ id: string }>();
-    const activityId = id || '1'; // Fallback to '1' if not provided
+    const activityId = props.activityId || '1';
     const { activityDetails, fetchActivityDetail, profile, setProfile } = useStore();
     const activity = activityDetails[activityId];
     const [selectedProvider, setSelectedProvider] = useState('airtel');
@@ -26,7 +29,7 @@ export default function ConfirmPaymentScreen() {
             }
         };
     }, [pollingInterval]);
-    
+
     // Fetch activity detail on component mount
     useEffect(() => {
         if (!activity) {
@@ -37,11 +40,13 @@ export default function ConfirmPaymentScreen() {
     // Show loading state while activity detail is being fetched
     if (!activity) {
         return (
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.loadingContainer}>
-                    <Text style={styles.loadingText}>Loading activity details...</Text>
-                </View>
-            </SafeAreaView>
+            <ScreenBottomSheet ref={ref}>
+                <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+                    <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Loading activity details...</Text>
+                    </View>
+                </SafeAreaView>
+            </ScreenBottomSheet>
         );
     }
 
@@ -53,7 +58,7 @@ export default function ConfirmPaymentScreen() {
 
         const interval = setInterval(async () => {
             attempts++;
-            
+
             try {
                 const response = await fetch(`${serverIp}/api/payment/status/${chargeId}`);
                 const data = await response.json();
@@ -85,10 +90,11 @@ export default function ConfirmPaymentScreen() {
                         // Navigate to tokens screen
                         setTimeout(() => {
                             try {
+                                closeSheet();
                                 router.push('/(visitor-tabs)/myTokensScreen');
                             } catch (error) {
                                 console.error('Navigation error:', error);
-                                router.back();
+                                closeSheet();
                             }
                         }, 1500);
                     } else if (data.status === 'failed' || data.status === 'cancelled') {
@@ -128,7 +134,7 @@ export default function ConfirmPaymentScreen() {
         setIsLoading(true);
 
         try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const serverIp = process.env.EXPO_PUBLIC_API_URL;
             const response = await fetch(`${serverIp}/api/payment/process`, {
                 method: 'POST',
                 headers: {
@@ -138,7 +144,7 @@ export default function ConfirmPaymentScreen() {
                     phoneNumber,
                     amount: activity.price,
                     provider: selectedProvider,
-                    activityId: id,
+                    activityId,
                     userId: profile?.id
                 }),
             });
@@ -153,7 +159,7 @@ export default function ConfirmPaymentScreen() {
                 } else {
                     // Immediate success (fallback)
                     showToast('Payment successful! Token generated.', 'success');
-                    
+
                     // If guest checkout created a user, update the store
                     if (data.user && !profile?.id) {
                         setProfile({
@@ -166,14 +172,15 @@ export default function ConfirmPaymentScreen() {
                             createdAt: new Date().toISOString()
                         });
                     }
-                    
+
                     // Navigate to tokens screen
                     setTimeout(() => {
                         try {
+                            closeSheet();
                             router.push('/(visitor-tabs)/myTokensScreen');
                         } catch (error) {
                             console.error('Navigation error:', error);
-                            router.back(); // Fallback to go back
+                            closeSheet();
                         }
                     }, 2000);
                 }
@@ -189,97 +196,88 @@ export default function ConfirmPaymentScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
-                    <MaterialIcons name="arrow-back" size={24} color={COLORS.slate900} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Confirm Payment</Text>
-                <View style={{ width: 40 }} />
-            </View>
+        <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-                {/* Merchant Info */}
-                <View style={styles.merchantRow}>
-                    <View style={styles.merchantIcon}>
-                        <MaterialIcons name="child-care" size={28} color={COLORS.primary} />
+                <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                    {/* Merchant Info */}
+                    <View style={styles.merchantRow}>
+                        <View>
+                            <Text style={styles.merchantName}>{activity.name}</Text>
+                            <Text style={styles.merchantRef}>Ref: GK-{activity.id}</Text>
+                        </View>
                     </View>
-                    <View>
-                        <Text style={styles.merchantName}>{activity.name}</Text>
-                        <Text style={styles.merchantRef}>Ref: GK-{activity.id}</Text>
+
+                    {/* Amount */}
+                    <View style={styles.amountCard}>
+                        <Text style={styles.amountLabel}>Amount to pay</Text>
+                        <Text style={styles.amountValue}>MK {activity.price}</Text>
                     </View>
-                </View>
 
-                {/* Amount */}
-                <View style={styles.amountCard}>
-                    <Text style={styles.amountLabel}>Amount to pay</Text>
-                    <Text style={styles.amountValue}>MK {activity.price}</Text>
-                </View>
-
-                <Text style={styles.instructions}>
-                    Enter your Airtel Money or TNM registered phone number to authorize the transaction.
-                </Text>
-
-                {/* Phone Input */}
-                <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Phone Number</Text>
-                    <View style={styles.inputWrapper}>
-                        <MaterialIcons name="phone-iphone" size={20} color={COLORS.slate400} style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="088XXXXXXX"
-                            placeholderTextColor={COLORS.slate400}
-                            keyboardType="phone-pad"
-                            value={phoneNumber}
-                            onChangeText={setPhoneNumber}
-                        />
-                    </View>
-                </View>
-
-                {/* Provider Toggle */}
-                <View style={styles.providerSection}>
-                    <Text style={styles.providerLabel}>Network Provider</Text>
-                    <View style={styles.providerGrid}>
-                        <TouchableOpacity
-                            style={[styles.providerBtn, selectedProvider === 'airtel' && styles.providerActive]}
-                            onPress={() => setSelectedProvider('airtel')}
-                        >
-                            <View style={[styles.providerDot, { backgroundColor: selectedProvider === 'airtel' ? COLORS.primary : COLORS.slate300 }]} />
-                            <Text style={[styles.providerText, selectedProvider === 'airtel' && { color: COLORS.slate900 }]}>Airtel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.providerBtn, selectedProvider === 'tnm' && styles.providerActive]}
-                            onPress={() => setSelectedProvider('tnm')}
-                        >
-                            <View style={[styles.providerDot, { backgroundColor: selectedProvider === 'tnm' ? COLORS.primary : COLORS.slate300 }]} />
-                            <Text style={[styles.providerText, selectedProvider === 'tnm' && { color: COLORS.slate900 }]}>TNM</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </ScrollView>
-
-            {/* Footer */}
-            <View style={styles.footer}>
-                <TouchableOpacity 
-                    style={styles.confirmButton} 
-                    activeOpacity={0.9}
-                    onPress={handlePayment}
-                    disabled={isLoading}
-                >
-                    <MaterialIcons name="lock" size={20} color={COLORS.white} />
-                    <Text style={styles.confirmText}>
-                        {isLoading ? 'Processing...' : 'Confirm Payment'}
+                    <Text style={styles.instructions}>
+                        Enter your Airtel Money or TNM registered phone number to authorize the transaction.
                     </Text>
-                </TouchableOpacity>
-                <View style={styles.securedRow}>
-                    <MaterialIcons name="verified-user" size={14} color={COLORS.slate400} />
-                    <Text style={styles.securedText}>Secured by Paychangu</Text>
+
+                    {/* Phone Input */}
+                    <View style={styles.fieldGroup}>
+                        <Text style={styles.label}>Phone Number</Text>
+                        <View style={styles.inputWrapper}>
+                            <MaterialIcons name="phone-iphone" size={20} color={COLORS.slate400} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="088XXXXXXX"
+                                placeholderTextColor={COLORS.slate400}
+                                keyboardType="phone-pad"
+                                value={phoneNumber}
+                                onChangeText={setPhoneNumber}
+                            />
+                        </View>
+                    </View>
+
+                    {/* Provider Toggle */}
+                    <View style={styles.providerSection}>
+                        <Text style={styles.providerLabel}>Network Provider</Text>
+                        <View style={styles.providerGrid}>
+                            <TouchableOpacity
+                                style={[styles.providerBtn, selectedProvider === 'airtel' && styles.providerActive]}
+                                onPress={() => setSelectedProvider('airtel')}
+                            >
+                                <View style={[styles.providerDot, { backgroundColor: selectedProvider === 'airtel' ? COLORS.primary : COLORS.slate300 }]} />
+                                <Text style={[styles.providerText, selectedProvider === 'airtel' && { color: COLORS.slate900 }]}>Airtel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.providerBtn, selectedProvider === 'tnm' && styles.providerActive]}
+                                onPress={() => setSelectedProvider('tnm')}
+                            >
+                                <View style={[styles.providerDot, { backgroundColor: selectedProvider === 'tnm' ? COLORS.primary : COLORS.slate300 }]} />
+                                <Text style={[styles.providerText, selectedProvider === 'tnm' && { color: COLORS.slate900 }]}>TNM</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </ScrollView>
+
+                {/* Footer */}
+                <View style={styles.footer}>
+                    <TouchableOpacity
+                        style={styles.confirmButton}
+                        activeOpacity={0.9}
+                        onPress={handlePayment}
+                        disabled={isLoading}
+                    >
+                        <MaterialIcons name="lock" size={20} color={COLORS.white} />
+                        <Text style={styles.confirmText}>
+                            {isLoading ? 'Processing...' : 'Confirm Payment'}
+                        </Text>
+                    </TouchableOpacity>
+                    <View style={styles.securedRow}>
+                        <MaterialIcons name="verified-user" size={14} color={COLORS.slate400} />
+                        <Text style={styles.securedText}>Secured by Paychangu</Text>
+                    </View>
                 </View>
-            </View>
-        </SafeAreaView>
+            </SafeAreaView>
+        </ScreenBottomSheet>
     );
-}
+});
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },
@@ -316,9 +314,15 @@ const styles = StyleSheet.create({
     inputWrapper: { position: 'relative', justifyContent: 'center' },
     inputIcon: { position: 'absolute', left: 16, zIndex: 1 },
     input: {
-        height: 56, paddingLeft: 44, paddingRight: 16,
-        borderWidth: 1, borderColor: COLORS.slate300, borderRadius: 12,
-        fontSize: 16, color: COLORS.slate900,
+        height: FORM_INPUT_TOKENS.height,
+        paddingLeft: FORM_INPUT_TOKENS.iconLeftPadding,
+        paddingRight: FORM_INPUT_TOKENS.horizontalPadding,
+        borderWidth: FORM_INPUT_TOKENS.borderWidth,
+        borderColor: FORM_INPUT_TOKENS.borderColor,
+        borderRadius: FORM_INPUT_TOKENS.borderRadius,
+        fontSize: FORM_INPUT_TOKENS.fontSize,
+        color: FORM_INPUT_TOKENS.textColor,
+        backgroundColor: FORM_INPUT_TOKENS.backgroundColor,
     },
     providerSection: { marginBottom: 24 },
     providerLabel: { fontSize: 12, fontWeight: '700', color: COLORS.slate500, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, paddingLeft: 4 },

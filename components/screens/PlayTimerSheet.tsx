@@ -2,15 +2,19 @@ import { COLORS } from '@/constants/theme';
 import { showImmediateNotification } from '@/utils/notifications';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState, forwardRef } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useStore } from './store';
+import { useStore } from '@/app/store';
+import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
-export default function PlayTimerScreen() {
+export const PlayTimerSheet = forwardRef<any, { tokenId?: string, onFinish?: (activityId: any) => void }>((props, ref) => {
+    const closeSheet = () => {
+        if (ref && 'current' in ref && ref.current) ref.current.dismiss();
+    };
     const router = useRouter();
-    const { tokenId } = useLocalSearchParams<{ tokenId: string }>();
+    const tokenId = props.tokenId || '0';
     const { tokens, fetchTokens, profile } = useStore();
     const [timeLeft, setTimeLeft] = useState('00:08');
     const [isFinished, setIsFinished] = useState(false);
@@ -80,80 +84,77 @@ export default function PlayTimerScreen() {
 
     const handleFinish = () => {
         if (token) {
-            router.push({ pathname: '/ratingFeedbackScreen', params: { activityId: token.activityId } });
+            if (props.onFinish) {
+                props.onFinish(token.activityId);
+            }
+            closeSheet();
         }
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
-                    <MaterialIcons name="close" size={24} color={COLORS.primary} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Play Timer</Text>
-                <View style={{ width: 40 }} />
-            </View>
+        <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
 
-            <View style={styles.content}>
-                {/* Timer */}
-                <View style={styles.timerSection}>
-                    <View style={styles.timerCircle}>
-                        <Text style={styles.timerValue}>{timeLeft}</Text>
-                        <Text style={styles.timerLabel}>Remaining</Text>
+                <View style={styles.content}>
+                    {/* Timer */}
+                    <View style={styles.timerSection}>
+                        <View style={styles.timerCircle}>
+                            <Text style={styles.timerValue}>{timeLeft}</Text>
+                            <Text style={styles.timerLabel}>Remaining</Text>
+                        </View>
                     </View>
+
+                    {/* Active Details Card */}
+                    <View style={styles.detailsCard}>
+                        <View style={styles.detailsRow}>
+                            <View style={styles.detailsIcon}>
+                                <MaterialIcons name="child-care" size={28} color={COLORS.white} />
+                            </View>
+                            <View>
+                                <Text style={styles.detailsLabel}>Currently Playing</Text>
+                                <Text style={styles.detailsValue}>#{token?.code || 'Loading'}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.detailsDivider} />
+
+                        <View style={styles.zoneRow}>
+                            <View>
+                                <Text style={styles.detailsLabel}>Active Zone</Text>
+                                <Text style={styles.zoneValue}>{token?.name || 'Loading Zone'}</Text>
+                            </View>
+                            <View style={styles.zoneImage}>
+                                <Image
+                                    source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBsaoPUFbzfH8r-O2UdSe5u8L6Q3oWWk9qwwtDzIyw-8xOP4G8A1zhCpblDiBbxYI8wEXaF6TuFkcYtms9NID3UcL16uiusKcqFCY7s1X0Wf2wQGdWF3KXOKqPjK2YrmYYux8bVMLzlPNH3qQLpDF5M8qyL42yetZYg_boGZw9tSRgQZXTqMloiujdHzETStDeQsavn3x1QTcmZill3S1dPJuW1AAef-CkX1QmF6LUEZnxrCiBot1BQD-YlNbNdvooQXEaxBOwvh1zp' }}
+                                    style={styles.zoneImg}
+                                    contentFit="cover"
+                                />
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Safety Reminder / Finish Button */}
+                    {isFinished ? (
+                        <TouchableOpacity style={styles.finishBtn} onPress={handleFinish}>
+                            <Text style={styles.finishBtnText}>Leave Feedback</Text>
+                            <MaterialIcons name="arrow-forward" size={20} color={COLORS.white} />
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={styles.reminderCard}>
+                            <MaterialIcons name="warning" size={20} color={COLORS.amber600} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.reminderTitle}>Safety Reminder</Text>
+                                <Text style={styles.reminderText}>
+                                    Please ensure the Token holder stays within the {token?.name || 'Zone'} boundaries. Staff are available at the entrance for assistance.
+                                </Text>
+                            </View>
+                        </View>
+                    )}
                 </View>
-
-                {/* Active Details Card */}
-                <View style={styles.detailsCard}>
-                    <View style={styles.detailsRow}>
-                        <View style={styles.detailsIcon}>
-                            <MaterialIcons name="child-care" size={28} color={COLORS.white} />
-                        </View>
-                        <View>
-                            <Text style={styles.detailsLabel}>Currently Playing</Text>
-                            <Text style={styles.detailsValue}>#{token?.code || 'Loading'}</Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.detailsDivider} />
-
-                    <View style={styles.zoneRow}>
-                        <View>
-                            <Text style={styles.detailsLabel}>Active Zone</Text>
-                            <Text style={styles.zoneValue}>{token?.name || 'Loading Zone'}</Text>
-                        </View>
-                        <View style={styles.zoneImage}>
-                            <Image
-                                source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBsaoPUFbzfH8r-O2UdSe5u8L6Q3oWWk9qwwtDzIyw-8xOP4G8A1zhCpblDiBbxYI8wEXaF6TuFkcYtms9NID3UcL16uiusKcqFCY7s1X0Wf2wQGdWF3KXOKqPjK2YrmYYux8bVMLzlPNH3qQLpDF5M8qyL42yetZYg_boGZw9tSRgQZXTqMloiujdHzETStDeQsavn3x1QTcmZill3S1dPJuW1AAef-CkX1QmF6LUEZnxrCiBot1BQD-YlNbNdvooQXEaxBOwvh1zp' }}
-                                style={styles.zoneImg}
-                                contentFit="cover"
-                            />
-                        </View>
-                    </View>
-                </View>
-
-                {/* Safety Reminder / Finish Button */}
-                {isFinished ? (
-                    <TouchableOpacity style={styles.finishBtn} onPress={handleFinish}>
-                        <Text style={styles.finishBtnText}>Leave Feedback</Text>
-                        <MaterialIcons name="arrow-forward" size={20} color={COLORS.white} />
-                    </TouchableOpacity>
-                ) : (
-                    <View style={styles.reminderCard}>
-                        <MaterialIcons name="warning" size={20} color={COLORS.amber600} />
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.reminderTitle}>Safety Reminder</Text>
-                            <Text style={styles.reminderText}>
-                                Please ensure the Token holder stays within the {token?.name || 'Zone'} boundaries. Staff are available at the entrance for assistance.
-                            </Text>
-                        </View>
-                    </View>
-                )}
-            </View>
-        </SafeAreaView>
+            </SafeAreaView>
+        </ScreenBottomSheet>
     );
-}
+});
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: COLORS.bgLight, paddingTop: Platform.OS === 'android' ? 25 : 0 },

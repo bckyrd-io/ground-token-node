@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Gelato",
-    "slug": "Gelato Access",
+    "name": "Ground Token",
+    "slug": "Ground-Token",
     "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -11,7 +11,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Camera access is required to scan QR codes for token validation"
+        "NSCameraUsageDescription": "Camera access is required to scan QR codes for token validation",
+        "NSLocationWhenInUseUsageDescription": "Allow access to your location." 
       }
     },
     "android": {
@@ -21,12 +22,13 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-
       "permissions": [
         "CAMERA",
-        "SCHEDULE_EXACT_ALARM"
+        "SCHEDULE_EXACT_ALARM",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
       ],
-
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.token"
@@ -49,11 +51,18 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "257a1049-b7b7-4648-8b2a-da66b99be2a7"
+      }
     }
   }
 }

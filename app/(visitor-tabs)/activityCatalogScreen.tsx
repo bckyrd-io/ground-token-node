@@ -1,13 +1,17 @@
 import { COLORS } from '@/constants/theme';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useStore } from '../store';
+import { ActivityDetailSheet } from '@/components/screens/ActivityDetailSheet';
+import { ConfirmPaymentSheet } from '@/components/screens/ConfirmPaymentSheet';
 
 export default function ActivityCatalogScreen() {
-    const router = useRouter();
     const { activities, fetchActivities } = useStore();
+    const activityDetailRef = useRef<BottomSheetModal>(null);
+    const confirmPaymentRef = useRef<BottomSheetModal>(null);
+    const [selectedActivityId, setSelectedActivityId] = useState<string>('');
 
     // Filter only play activities for the catalog
     const playActivities = activities.filter(activity => activity.type === 'play');
@@ -17,12 +21,16 @@ export default function ActivityCatalogScreen() {
     }, [fetchActivities]);
 
     return (
+        <>
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             {playActivities.map((activity) => (
                 <TouchableOpacity
                     key={activity.id}
                     style={styles.card}
-                    onPress={() => router.push({ pathname: '/activityDetailScreen', params: { id: activity.id } })}
+                    onPress={() => {
+                        setSelectedActivityId(String(activity.id));
+                        activityDetailRef.current?.present();
+                    }}
                     activeOpacity={0.7}
                 >
                     {/* Image */}
@@ -46,7 +54,10 @@ export default function ActivityCatalogScreen() {
                         <Text style={styles.cardDescription}>{activity.description}</Text>
                         <TouchableOpacity
                             style={styles.bookButton}
-                            onPress={() => router.push({ pathname: '/confirmPaymentScreen', params: { id: activity.id } })}
+                            onPress={() => {
+                                setSelectedActivityId(String(activity.id));
+                                confirmPaymentRef.current?.present();
+                            }}
                         >
                             <Text style={styles.bookButtonText}>Book Access</Text>
                         </TouchableOpacity>
@@ -54,8 +65,12 @@ export default function ActivityCatalogScreen() {
                 </TouchableOpacity>
             ))}
         </ScrollView>
+        <ActivityDetailSheet ref={activityDetailRef} activityId={selectedActivityId} />
+        <ConfirmPaymentSheet ref={confirmPaymentRef} activityId={selectedActivityId} />
+        </>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {
