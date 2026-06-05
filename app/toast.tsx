@@ -13,7 +13,8 @@ const createToastStyle = (bottomColor: string) => ({
     shadowOpacity: 0,
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 0,
+    elevation: 9999,
+    zIndex: 9999,
 });
 
 const createText1Style = () => ({

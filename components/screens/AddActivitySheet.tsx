@@ -164,7 +164,7 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
     };
 
     return (
-        <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
+        <ScreenBottomSheet ref={ref} snapPoints={['90%']} scrollable={true}>
             <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
 
                 <BottomSheetScrollView

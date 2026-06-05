@@ -6,10 +6,11 @@ interface ScreenBottomSheetProps {
     children: React.ReactNode;
     snapPoints?: string[];
     onDismiss?: () => void;
+    scrollable?: boolean;
 }
 
 export const ScreenBottomSheet = forwardRef<BottomSheetModal, ScreenBottomSheetProps>(
-    ({ children, snapPoints = ['90%'], onDismiss }, ref) => {
+    ({ children, snapPoints = ['90%'], onDismiss, scrollable = false }, ref) => {
         const renderBackdrop = useCallback(
             (props: any) => (
                 <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
@@ -28,13 +29,17 @@ export const ScreenBottomSheet = forwardRef<BottomSheetModal, ScreenBottomSheetP
                 keyboardBlurBehavior="restore"
                 onDismiss={onDismiss}
             >
-                <BottomSheetView style={styles.contentContainer}>
-                    {children}
-                </BottomSheetView>
+                {scrollable ? children : (
+                    <BottomSheetView style={styles.contentContainer}>
+                        {children}
+                    </BottomSheetView>
+                )}
             </BottomSheetModal>
         );
     }
 );
+
+ScreenBottomSheet.displayName = 'ScreenBottomSheet';
 
 const styles = StyleSheet.create({
     contentContainer: {

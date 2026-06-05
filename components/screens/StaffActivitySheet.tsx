@@ -132,7 +132,7 @@ export const StaffActivitySheet = forwardRef<any, StaffActivitySheetProps>(({ se
     };
 
     return (
-        <ScreenBottomSheet ref={ref} snapPoints={['85%']}>
+        <ScreenBottomSheet ref={ref} snapPoints={['85%']} scrollable={true}>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.header}>
                     <View>
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 16,
-        paddingBottom: 24,
+        paddingBottom: 96,
         gap: 16,
     },
     staffCard: {
