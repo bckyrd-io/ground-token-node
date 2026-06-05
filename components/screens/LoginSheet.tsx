@@ -84,8 +84,8 @@ export const LoginSheet = forwardRef<any, LoginSheetProps>((props, ref) => {
         <ScreenBottomSheet ref={ref} snapPoints={['90%']} onDismiss={props.onDismiss}>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
                 <View style={styles.container}>
-                    <Text style={styles.formTitle}>Welcome Back</Text>
-                    <Text style={styles.formSubtitle}>Sign in to access your account</Text>
+                    {/* <Text style={styles.formTitle}>Welcome Back</Text>
+                    <Text style={styles.formSubtitle}>Welcome Back</Text> */}
 
                     <View style={styles.inputWrapper}>
                         <MaterialIcons name="person" size={20} color={COLORS.slate400} style={styles.inputIcon} />

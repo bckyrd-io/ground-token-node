@@ -178,7 +178,7 @@ export default function VisitorTabsLayout() {
                     name="orderFoodScreen"
                     options={{
                         title: 'Ground Token',
-                        tabBarLabel: 'Food',
+                        tabBarLabel: 'Meal',
                         tabBarIcon: ({ color, size }) => (
                             <MaterialIcons name="local-pizza" size={size} color={color} />
                         ),

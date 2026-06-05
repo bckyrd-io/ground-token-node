@@ -1,8 +1,9 @@
 import { COLORS } from '@/constants/theme';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, forwardRef } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/app/store';
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
@@ -41,7 +42,7 @@ export const ActivityDetailSheet = forwardRef<any, { activityId?: string }>((pro
     return (
         <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
-                <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                <BottomSheetScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
                     {/* Hero Image */}
                     <View style={styles.heroContainer}>
                         <Image
@@ -71,7 +72,6 @@ export const ActivityDetailSheet = forwardRef<any, { activityId?: string }>((pro
                     {/* Safety Rules */}
                     <View style={styles.safetyCard}>
                         <View style={styles.safetyHeader}>
-                            <MaterialIcons name="gavel" size={20} color={COLORS.primary} />
                             <Text style={styles.safetyTitle}>Safety Rules</Text>
                         </View>
                         {safetyRules.map((rule: string, index: number) => (
@@ -81,7 +81,7 @@ export const ActivityDetailSheet = forwardRef<any, { activityId?: string }>((pro
                             </View>
                         ))}
                     </View>
-                </ScrollView>
+                </BottomSheetScrollView>
             </SafeAreaView>
         </ScreenBottomSheet>
     );
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     description: { fontSize: 16, color: COLORS.slate600, lineHeight: 24 },
     safetyCard: {
         marginHorizontal: 16, backgroundColor: COLORS.white, borderRadius: 16,
-        padding: 20, borderWidth: 1, borderColor: COLORS.slate100,
+        padding: 20, borderWidth: 1, borderColor: COLORS.slate300,
     },
     safetyHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
     safetyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.slate900 },

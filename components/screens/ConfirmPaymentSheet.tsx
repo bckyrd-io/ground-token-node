@@ -1,8 +1,9 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState, forwardRef } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/app/store';
 import { showToast } from '@/app/toast';
@@ -199,7 +200,7 @@ export const ConfirmPaymentSheet = forwardRef<any, { activityId?: string }>((pro
         <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
 
-                <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                <BottomSheetScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
                     {/* Merchant Info */}
                     <View style={styles.merchantRow}>
                         <View>
@@ -254,7 +255,7 @@ export const ConfirmPaymentSheet = forwardRef<any, { activityId?: string }>((pro
                             </TouchableOpacity>
                         </View>
                     </View>
-                </ScrollView>
+                </BottomSheetScrollView>
 
                 {/* Footer */}
                 <View style={styles.footer}>

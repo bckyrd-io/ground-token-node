@@ -1,7 +1,8 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useState, forwardRef } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Profile } from '@/app/store';
 import { useStore } from '@/app/store';
@@ -111,7 +112,7 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
     return (
         <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
-                <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+                <BottomSheetScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
                     {/* Profile Header */}
                     <View style={styles.profileHeader}>
                         <View style={styles.avatarContainer}>
@@ -218,7 +219,7 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
                     </TouchableOpacity>
 
                     <View style={{ height: 24 }} />
-                </ScrollView>
+                </BottomSheetScrollView>
             </SafeAreaView>
         </ScreenBottomSheet>
     );

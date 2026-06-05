@@ -1,7 +1,8 @@
 import { COLORS } from '@/constants/theme';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { forwardRef } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
@@ -15,7 +16,7 @@ export const AboutSheet = forwardRef<any, any>((props, ref) => {
     return (
         <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
-                <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+                <BottomSheetScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
                     {/* App Logo/Header */}
                     <View style={styles.logoHeader}>
                         <View style={styles.logoContainer}>
@@ -56,7 +57,7 @@ export const AboutSheet = forwardRef<any, any>((props, ref) => {
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>support@extend.energy/electronics</Text>
                     </View>
-                </ScrollView>
+                </BottomSheetScrollView>
             </SafeAreaView>
         </ScreenBottomSheet>
     );

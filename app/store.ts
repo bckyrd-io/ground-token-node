@@ -22,6 +22,7 @@ type Activity = {
     waitColor: string;
     image: string;
     type: 'play' | 'food';
+    isCapacityControlOpen?: boolean | number;
     latitude?: number | null;
     longitude?: number | null;
 };
@@ -48,6 +49,7 @@ type ActivityDetail = {
     image: string;
     safetyRules: string[];
     type: 'play' | 'food';
+    isCapacityControlOpen?: boolean | number;
     latitude?: number | null;
     longitude?: number | null;
 };

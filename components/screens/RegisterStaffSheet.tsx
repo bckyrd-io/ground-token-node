@@ -1,17 +1,20 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import React, { useState, forwardRef } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { showToast } from '@/app/toast';
-import ScreenBottomSheet from '@/components/ScreenBottomSheet';
+import { ScreenBottomSheet } from '@/components/ScreenBottomSheet';
 
-export const RegisterStaffSheet = forwardRef<any, any>((props, ref) => {
+type RegisterStaffSheetProps = {
+    onSuccess?: () => void;
+};
+
+export const RegisterStaffSheet = forwardRef<any, RegisterStaffSheetProps>((props, ref) => {
     const closeSheet = () => {
         if (ref && 'current' in ref && ref.current) ref.current.dismiss();
     };
-    const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -44,6 +47,7 @@ export const RegisterStaffSheet = forwardRef<any, any>((props, ref) => {
 
             if (response.ok) {
                 showToast('Staff registered successfully', 'success');
+                props?.onSuccess?.();
                 // Navigate back to staff management screen after a short delay
                 setTimeout(() => {
                     closeSheet();
@@ -63,7 +67,7 @@ export const RegisterStaffSheet = forwardRef<any, any>((props, ref) => {
         <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
 
-                <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                <BottomSheetScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
                     {/* <Text style={styles.sectionTitle}>Staff Information</Text> */}
 
                     {/* Username */}
@@ -136,7 +140,7 @@ export const RegisterStaffSheet = forwardRef<any, any>((props, ref) => {
                         </View>
                     </View>
 
-                </ScrollView>
+                </BottomSheetScrollView>
 
                 {/* Bottom Button */}
                 <View style={styles.footer}>
@@ -155,6 +159,8 @@ export const RegisterStaffSheet = forwardRef<any, any>((props, ref) => {
         </ScreenBottomSheet>
     );
 });
+
+RegisterStaffSheet.displayName = 'RegisterStaffSheet';
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },

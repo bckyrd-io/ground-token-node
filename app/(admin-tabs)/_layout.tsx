@@ -168,7 +168,7 @@ export default function AdminTabsLayout() {
                     }}
                 />
 
-                <Tabs.Screen
+                {/* <Tabs.Screen
                     name="capacityControlScreen"
                     options={{
                         title: 'Ground Token ',
@@ -177,7 +177,7 @@ export default function AdminTabsLayout() {
                             <MaterialIcons name="analytics" size={size} color={color} />
                         ),
                     }}
-                />
+                /> */}
                 <Tabs.Screen
                     name="staffScannerScreen"
                     options={{
@@ -205,7 +205,7 @@ export default function AdminTabsLayout() {
                         title: 'Ground Token ',
                         tabBarLabel: 'Staff',
                         tabBarIcon: ({ color, size }) => (
-                            <MaterialIcons name="checklist" size={size} color={color} />
+                            <MaterialIcons name="people" size={size} color={color} />
                         ),
                     }}
                 />

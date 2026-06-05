@@ -1,24 +1,32 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import React, { useEffect, useState, forwardRef } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState, forwardRef } from 'react';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/app/store';
 import { showToast } from '@/app/toast';
-import ScreenBottomSheet from '@/components/ScreenBottomSheet';
+import { ScreenBottomSheet } from '@/components/ScreenBottomSheet';
 
 export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
+    const initialActivityState = {
+        name: '',
+        description: '',
+        price: '',
+        capacity: '',
+        image: '',
+        safetyRules: [''],
+        type: 'play' as const,
+    };
     const closeSheet = () => {
         if (ref && 'current' in ref && ref.current) ref.current.dismiss();
     };
-    const { staff, fetchStaff } = useStore();
+    const { fetchAdminActivities } = useStore();
     const [isLoading, setIsLoading] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
-    const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
-    const [showStaffPicker, setShowStaffPicker] = useState(false);
     const [latitude, setLatitude] = useState('');
     const [longitude, setLongitude] = useState('');
     const [activity, setActivity] = useState<{
@@ -29,19 +37,14 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
         image: string;
         safetyRules: string[];
         type: 'play' | 'food';
-    }>({
-        name: '',
-        description: '',
-        price: '',
-        capacity: '',
-        image: '',
-        safetyRules: [''],
-        type: 'play'
-    });
+    }>(initialActivityState);
 
-    useEffect(() => {
-        fetchStaff();
-    }, [fetchStaff]);
+    const resetForm = () => {
+        setSelectedImage(null);
+        setLatitude('');
+        setLongitude('');
+        setActivity(initialActivityState);
+    };
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -70,7 +73,6 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
             formData.append('capacity', activity.capacity);
             formData.append('type', activity.type);
             formData.append('safetyRules', JSON.stringify(activity.safetyRules));
-            formData.append('staff', JSON.stringify(selectedStaff));
             formData.append('latitude', latitude);
             formData.append('longitude', longitude);
 
@@ -124,6 +126,9 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
 
             if (response.ok) {
                 showToast('Activity added successfully', 'success', () => {
+                    resetForm();
+                    fetchAdminActivities();
+                    props?.onSuccess?.();
                     closeSheet();
                 });
             } else {
@@ -160,16 +165,28 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
 
     return (
         <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
-            <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
 
-                <ScrollView
-                    style={styles.scrollView}
+                <BottomSheetScrollView
                     contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    nestedScrollEnabled
                     showsVerticalScrollIndicator={true}
+                    keyboardShouldPersistTaps="handled"
                 >
-
+                    {/* Activity Photo */}
+                    <View style={styles.photoSection}>
+                        <Text style={styles.sectionTitle}>Activity Photo</Text>
+                        <TouchableOpacity style={styles.photoCard} onPress={pickImage}>
+                            <Image
+                                source={{ uri: selectedImage || 'https://via.placeholder.com/400x225?text=No+Image' }}
+                                style={styles.photo}
+                                contentFit="cover"
+                            />
+                            <View style={styles.uploadOverlay}>
+                                <MaterialIcons name="add-a-photo" size={28} color={COLORS.slate700} />
+                                <Text style={styles.uploadText}>{selectedImage ? 'Change Photo' : 'Upload Photo'}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
 
                     {/* Activity Name */}
                     <View style={styles.fieldGroup}>
@@ -198,18 +215,48 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
                                 style={[styles.typeButton, activity.type === 'food' && styles.typeButtonActive]}
                                 onPress={() => setActivity({ ...activity, type: 'food' })}
                             >
-                                <MaterialIcons name="restaurant" size={20} color={activity.type === 'food' ? COLORS.white : COLORS.slate600} />
-                                <Text style={[styles.typeButtonText, activity.type === 'food' && styles.typeButtonTextActive]}>Food</Text>
+                                <MaterialIcons name="local-pizza" size={20} color={activity.type === 'food' ? COLORS.white : COLORS.slate600} />
+                                <Text style={[styles.typeButtonText, activity.type === 'food' && styles.typeButtonTextActive]}>Meal</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
+                     
 
-                    {/* Description */}
+                    <View style={styles.fieldGroup}>
+                        <Text style={styles.label}>Activity Coordinates</Text>
+                        <TouchableOpacity style={styles.typeButton} onPress={handleUseCurrentLocation}>
+                            <MaterialIcons name="my-location" size={18} color={COLORS.primary} />
+                            <Text>Get Coordinates</Text>
+                        </TouchableOpacity>
+                        {/* <View style={styles.row}>
+                            <View style={[styles.fieldGroup, { flex: 1 }]}>
+                                <TextInput
+                                    style={styles.textInput}
+                                    placeholder="Latitude"
+                                    value={latitude}
+                                    onChangeText={setLatitude}
+                                    placeholderTextColor={COLORS.slate400}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+                            <View style={[styles.fieldGroup, { flex: 1, marginLeft: 16 }]}>
+                                <TextInput
+                                    style={styles.textInput}
+                                    placeholder="Longitude"
+                                    value={longitude}
+                                    onChangeText={setLongitude}
+                                    placeholderTextColor={COLORS.slate400}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+                        </View> */}
+                    </View>
+
                     <View style={styles.fieldGroup}>
                         <Text style={styles.label}>Description</Text>
                         <TextInput
                             style={[styles.input, styles.textArea]}
-                            placeholder="Enter activity description"
+                            placeholder={activity.type === 'food' ? 'Describe this meal item' : 'Describe this activity'}
                             value={activity.description}
                             multiline
                             onChangeText={(text) => setActivity({ ...activity, description: text })}
@@ -250,37 +297,9 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
                         </View>
                     </View>
 
-                    <View style={styles.fieldGroup}>
-                        <Text style={styles.label}>Activity Coordinates</Text>
-                        <TouchableOpacity style={styles.locationButton} onPress={handleUseCurrentLocation}>
-                            <MaterialIcons name="my-location" size={18} color={COLORS.white} />
-                            <Text style={styles.locationButtonText}>Use Current Location</Text>
-                        </TouchableOpacity>
-                        <View style={styles.row}>
-                            <View style={[styles.fieldGroup, { flex: 1 }]}>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="Latitude"
-                                    value={latitude}
-                                    onChangeText={setLatitude}
-                                    placeholderTextColor={COLORS.slate400}
-                                    keyboardType="numeric"
-                                />
-                            </View>
-                            <View style={[styles.fieldGroup, { flex: 1, marginLeft: 16 }]}>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="Longitude"
-                                    value={longitude}
-                                    onChangeText={setLongitude}
-                                    placeholderTextColor={COLORS.slate400}
-                                    keyboardType="numeric"
-                                />
-                            </View>
-                        </View>
-                    </View>
+                    
 
-                    {/* Staff Assignment */}
+                    {/* Staff Assignment
                     <View style={styles.fieldGroup}>
                         <Text style={styles.label}>Staff Assignment</Text>
                         <TouchableOpacity
@@ -295,121 +314,54 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
                             </Text>
                             <MaterialIcons name="expand-more" size={24} color={COLORS.slate400} />
                         </TouchableOpacity>
-                    </View>
+                    </View> */}
 
-                    {/* Staff Picker Modal */}
-                    {showStaffPicker && (
-                        <View style={styles.modalOverlay}>
-                            <View style={styles.modalContent}>
-                                <View style={styles.modalHeader}>
-                                    <Text style={styles.modalTitle}>Select Staff</Text>
-                                    <TouchableOpacity onPress={() => setShowStaffPicker(false)}>
-                                        <MaterialIcons name="close" size={24} color={COLORS.slate900} />
-                                    </TouchableOpacity>
-                                </View>
-                                <ScrollView style={styles.staffList}>
-                                    {staff.map(member => (
-                                        <TouchableOpacity
-                                            key={member.id}
-                                            style={[
-                                                styles.staffItem,
-                                                selectedStaff.includes(member.id) && styles.selectedStaffItem
-                                            ]}
-                                            onPress={() => {
-                                                if (selectedStaff.includes(member.id)) {
-                                                    setSelectedStaff(selectedStaff.filter(id => id !== member.id));
-                                                } else {
-                                                    setSelectedStaff([...selectedStaff, member.id]);
-                                                }
-                                            }}
-                                        >
-                                            <View style={styles.staffAvatar}>
-                                                <MaterialIcons name="person" size={24} color={COLORS.slate400} />
-                                            </View>
-                                            <View style={styles.staffInfo}>
-                                                <Text style={styles.staffName}>{member.name || member.username}</Text>
-                                                <Text style={styles.staffZone}>{member.zone}</Text>
-                                            </View>
-                                            <View style={[
-                                                styles.checkbox,
-                                                selectedStaff.includes(member.id) && styles.checkboxChecked
-                                            ]}>
-                                                {selectedStaff.includes(member.id) && (
-                                                    <MaterialIcons name="check" size={16} color={COLORS.white} />
-                                                )}
-                                            </View>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                                <TouchableOpacity
-                                    style={styles.modalButton}
-                                    onPress={() => setShowStaffPicker(false)}
-                                >
-                                    <Text style={styles.modalButtonText}>Done</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
+{/* 
+                    // {/* Safety Rules */}
+                    {/* // <View style={styles.fieldGroup}>
+                    //     <Text style={styles.label}>Safety Rules</Text>
+                    //     <TouchableOpacity
+                    //         style={styles.addRuleButton}
+                    //         onPress={() => {
+                    //             setActivity({
+                    //                 ...activity,
+                    //                 safetyRules: [...activity.safetyRules, '']
+                    //             });
+                    //         }}
+                    //     >
+                    //         <MaterialIcons name="add" size={20} color={COLORS.primary} />
+                    //         <Text style={styles.addRuleText}>Add Safety Rule</Text>
+                    //     </TouchableOpacity>
 
-                    {/* Safety Rules */}
-                    <View style={styles.fieldGroup}>
-                        <Text style={styles.label}>Safety Rules</Text>
-                        <TouchableOpacity
-                            style={styles.addRuleButton}
-                            onPress={() => {
-                                setActivity({
-                                    ...activity,
-                                    safetyRules: [...activity.safetyRules, '']
-                                });
-                            }}
-                        >
-                            <MaterialIcons name="add" size={20} color={COLORS.primary} />
-                            <Text style={styles.addRuleText}>Add Safety Rule</Text>
-                        </TouchableOpacity>
+                    //     {activity.safetyRules.map((rule, index) => (
+                    //         <View key={index} style={styles.ruleItem}>
+                    //             <TextInput
+                    //                 style={[styles.input, { flex: 1 }]}
+                    //                 placeholder={`Safety rule ${index + 1}`}
+                    //                 value={rule}
+                    //                 onChangeText={(text) => {
+                    //                     const newRules = [...activity.safetyRules];
+                    //                     newRules[index] = text;
+                    //                     setActivity({ ...activity, safetyRules: newRules });
+                    //                 }}
+                    //                 placeholderTextColor={COLORS.slate400}
+                    //             />
+                    //             {activity.safetyRules.length > 1 && (
+                    //                 <TouchableOpacity
+                    //                     style={styles.removeRuleButton}
+                    //                     onPress={() => {
+                    //                         const newRules = activity.safetyRules.filter((_, i) => i !== index);
+                    //                         setActivity({ ...activity, safetyRules: newRules });
+                    //                     }}
+                    //                 >
+                    //                     <MaterialIcons name="close" size={20} color={COLORS.red500} />
+                    //                 </TouchableOpacity>
+                    //             )}
+                    //         </View>
+                    //     ))}
+                    </View>  */}
 
-                        {activity.safetyRules.map((rule, index) => (
-                            <View key={index} style={styles.ruleItem}>
-                                <TextInput
-                                    style={[styles.input, { flex: 1 }]}
-                                    placeholder={`Safety rule ${index + 1}`}
-                                    value={rule}
-                                    onChangeText={(text) => {
-                                        const newRules = [...activity.safetyRules];
-                                        newRules[index] = text;
-                                        setActivity({ ...activity, safetyRules: newRules });
-                                    }}
-                                    placeholderTextColor={COLORS.slate400}
-                                />
-                                {activity.safetyRules.length > 1 && (
-                                    <TouchableOpacity
-                                        style={styles.removeRuleButton}
-                                        onPress={() => {
-                                            const newRules = activity.safetyRules.filter((_, i) => i !== index);
-                                            setActivity({ ...activity, safetyRules: newRules });
-                                        }}
-                                    >
-                                        <MaterialIcons name="close" size={20} color={COLORS.red500} />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        ))}
-                    </View>
-
-                    {/* Activity Photo */}
-                    <View style={styles.photoSection}>
-                        <Text style={styles.sectionTitle}>Activity Photo</Text>
-                        <TouchableOpacity style={styles.photoCard} onPress={pickImage}>
-                            <Image
-                                source={{ uri: selectedImage || 'https://via.placeholder.com/400x225?text=No+Image' }}
-                                style={styles.photo}
-                                contentFit="cover"
-                            />
-                            <View style={styles.uploadOverlay}>
-                                <MaterialIcons name="add-a-photo" size={28} color={COLORS.slate700} />
-                                <Text style={styles.uploadText}>{selectedImage ? 'Change Photo' : 'Upload Photo'}</Text>
-                            </View>
-                        </TouchableOpacity>
-                    </View>
+                   
 
                     {/* Save Button */}
                     <TouchableOpacity
@@ -421,11 +373,13 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
                             {isLoading ? 'Adding Activity...' : 'Submit'}
                         </Text>
                     </TouchableOpacity>
-                </ScrollView>
+                </BottomSheetScrollView>
             </SafeAreaView>
         </ScreenBottomSheet>
     );
 });
+
+AddActivitySheet.displayName = 'AddActivitySheet';
 
 const styles = StyleSheet.create({
     safeArea: {
@@ -455,7 +409,6 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: 16,
         paddingBottom: 48,
-        flexGrow: 1,
     },
     photoSection: {
         marginBottom: 24,
@@ -513,7 +466,6 @@ const styles = StyleSheet.create({
         backgroundColor: FORM_INPUT_TOKENS.backgroundColor,
     },
     textArea: {
-        minHeight: 120,
         paddingVertical: 16,
         ...(Platform.OS === 'android' && { textAlignVertical: 'top' }),
     },
@@ -564,110 +516,6 @@ const styles = StyleSheet.create({
     switchLabel: {
         fontSize: 14,
         color: COLORS.slate600,
-    },
-    staffSelector: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderWidth: FORM_INPUT_TOKENS.borderWidth,
-        borderColor: FORM_INPUT_TOKENS.borderColor,
-        borderRadius: FORM_INPUT_TOKENS.borderRadius,
-        paddingHorizontal: FORM_INPUT_TOKENS.horizontalPadding,
-        height: FORM_INPUT_TOKENS.height,
-        backgroundColor: FORM_INPUT_TOKENS.backgroundColor,
-    },
-    staffSelectorText: {
-        fontSize: 16,
-        color: COLORS.slate900,
-    },
-    modalOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000,
-    },
-    modalContent: {
-        backgroundColor: COLORS.white,
-        borderRadius: 12,
-        width: '90%',
-        maxHeight: '80%',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.slate200,
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: COLORS.slate900,
-    },
-    staffList: {
-        maxHeight: 300,
-    },
-    staffItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.slate100,
-    },
-    selectedStaffItem: {
-        backgroundColor: COLORS.green50,
-    },
-    staffAvatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        marginRight: 12,
-        backgroundColor: COLORS.slate100,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    staffInfo: {
-        flex: 1,
-    },
-    staffName: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: COLORS.slate900,
-    },
-    staffZone: {
-        fontSize: 12,
-        color: COLORS.slate600,
-    },
-    checkbox: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: COLORS.slate300,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    checkboxChecked: {
-        backgroundColor: COLORS.primary,
-        borderColor: COLORS.primary,
-    },
-    modalButton: {
-        backgroundColor: COLORS.primary,
-        margin: 16,
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    modalButtonText: {
-        color: COLORS.white,
-        fontSize: 16,
-        fontWeight: '600',
     },
     addRuleButton: {
         flexDirection: 'row',
