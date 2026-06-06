@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Camera access is required to scan QR codes for token validation",
-        "NSLocationWhenInUseUsageDescription": "Allow access to your location." 
+        "NSLocationWhenInUseUsageDescription": "Allow access to your location."
       }
     },
     "android": {
@@ -61,6 +61,7 @@
     "extra": {
       "router": {},
       "eas": {
+        "projectId": "2bc6c58d-b23d-43c7-bcb2-1b13781ac5ab"
       }
     }
   }
