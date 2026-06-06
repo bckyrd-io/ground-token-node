@@ -2,18 +2,17 @@ import { COLORS } from '@/constants/theme';
 import { showImmediateNotification } from '@/utils/notifications';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState, forwardRef } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/app/store';
+// eslint-disable-next-line import/no-named-as-default
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
 export const PlayTimerSheet = forwardRef<any, { tokenId?: string, onFinish?: (activityId: any) => void }>((props, ref) => {
     const closeSheet = () => {
         if (ref && 'current' in ref && ref.current) ref.current.dismiss();
     };
-    const router = useRouter();
     const tokenId = props.tokenId || '0';
     const { tokens, fetchTokens, profile } = useStore();
     const [timeLeft, setTimeLeft] = useState('00:08');
@@ -80,7 +79,7 @@ export const PlayTimerSheet = forwardRef<any, { tokenId?: string, onFinish?: (ac
         updateTimer();
         const interval = setInterval(updateTimer, 1000);
         return () => clearInterval(interval);
-    }, [token]);
+    }, [token, tokenId]);
 
     const handleFinish = () => {
         if (token) {
@@ -155,6 +154,8 @@ export const PlayTimerSheet = forwardRef<any, { tokenId?: string, onFinish?: (ac
         </ScreenBottomSheet>
     );
 });
+
+        PlayTimerSheet.displayName = 'PlayTimerSheet';
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: COLORS.bgLight, paddingTop: Platform.OS === 'android' ? 25 : 0 },

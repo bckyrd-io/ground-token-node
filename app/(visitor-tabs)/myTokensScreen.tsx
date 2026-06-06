@@ -29,7 +29,7 @@ export default function MyTokensScreen() {
                 // Token was promoted from queue to ready - notify visitor only once
                 if (!notifiedTokenIdsRef.current.has(token.id)) {
                     showImmediateNotification(
-                        "It's Your Turn!",
+                        'It\u2019s Your Turn!',
                         `Token #${token.code} for ${token.name} is now ready. Show your QR code to the staff!`,
                         { tokenId: token.id, type: 'token_ready' },
                         'queue-alerts'
@@ -155,7 +155,7 @@ export default function MyTokensScreen() {
 
             {/* Instructions */}
             <Text style={styles.instructions}>
-                Show the QR code to the attendant when your number is called, your order is ready, or your status is 'Ready'.
+                Show the QR code to the attendant when your number is called, your order is ready, or your status is Ready.
             </Text>
         </ScrollView>
         <PlayTimerSheet

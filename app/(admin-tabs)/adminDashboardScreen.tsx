@@ -1,17 +1,16 @@
 import { COLORS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { showToast } from '../toast';
 
 // Platform-specific imports
-let FileSystem: any = null;
 let Sharing: any = null;
 
 if (Platform.OS !== 'web') {
-    FileSystem = require('expo-file-system');
+    // Allow conditional require for native-only module
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     Sharing = require('expo-sharing');
 }
 
@@ -22,11 +21,10 @@ interface DashboardData {
     totalCapacity: number;
     totalOccupancy: number;
     activeStaff: number;
-    weeklyData: Array<{ date: string; visitors: number }>;
+    weeklyData: { date: string; visitors: number }[];
 }
 
 export default function AdminDashboardScreen() {
-    const router = useRouter();
     const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 

@@ -1,6 +1,5 @@
 import React from 'react';
-import { BaseToast, ErrorToast, ToastConfig, ToastConfigParams } from 'react-native-toast-message';
-import Toast from 'react-native-toast-message';
+import Toast, { BaseToast, ErrorToast, ToastConfig, ToastConfigParams } from 'react-native-toast-message';
 
 const createToastStyle = (bottomColor: string) => ({
     borderLeftWidth: 0,

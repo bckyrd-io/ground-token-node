@@ -1,6 +1,5 @@
 import { useIsFocused } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, StyleSheet, Text, View } from 'react-native';
 import { useStore } from '../store';
@@ -14,7 +13,6 @@ const COLORS = {
 };
 
 export default function StaffScannerScreen() {
-    const router = useRouter();
     const isFocused = useIsFocused();
     const { serverIp } = useStore();
     const [permission, requestPermission] = useCameraPermissions();
@@ -25,7 +23,7 @@ export default function StaffScannerScreen() {
         if (permission && !permission.granted) {
             requestPermission();
         }
-    }, [permission]);
+    }, [permission, requestPermission]);
 
     const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
         if (scanned || validating) return;

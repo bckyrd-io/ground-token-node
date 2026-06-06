@@ -92,6 +92,8 @@ const MenuComponent = React.forwardRef<BottomSheetModal, Omit<MenuModalProps, 'v
     );
 });
 
+MenuComponent.displayName = 'MenuComponent';
+
 export default function VisitorTabsLayout() {
     const router = useRouter();
     const bottomSheetModalRef = useRef<BottomSheetModal>(null);

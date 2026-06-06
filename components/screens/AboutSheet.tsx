@@ -2,16 +2,12 @@ import { COLORS } from '@/constants/theme';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { forwardRef } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// eslint-disable-next-line import/no-named-as-default
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
 export const AboutSheet = forwardRef<any, any>((props, ref) => {
-    const closeSheet = () => {
-        if (ref && 'current' in ref && ref.current) {
-            ref.current.dismiss();
-        }
-    };
 
     return (
         <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
@@ -63,6 +59,7 @@ export const AboutSheet = forwardRef<any, any>((props, ref) => {
     );
 });
 
+AboutSheet.displayName = 'AboutSheet';
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,

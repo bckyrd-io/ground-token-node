@@ -1,5 +1,6 @@
 import { useStore } from '@/app/store';
 import { showToast } from '@/app/toast';
+// eslint-disable-next-line import/no-named-as-default
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';

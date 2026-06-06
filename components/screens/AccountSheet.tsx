@@ -7,15 +7,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Profile } from '@/app/store';
 import { useStore } from '@/app/store';
 import { showToast } from '@/app/toast';
+// eslint-disable-next-line import/no-named-as-default
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
 
 export const AccountSheet = forwardRef<any, any>((props, ref) => {
-    const closeSheet = () => {
-        if (ref && 'current' in ref && ref.current) {
-            ref.current.dismiss();
-        }
-    };
     const { profile, setProfile } = useStore();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -224,6 +220,8 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
         </ScreenBottomSheet>
     );
 });
+
+        AccountSheet.displayName = 'AccountSheet';
 
 const styles = StyleSheet.create({
     safeArea: {

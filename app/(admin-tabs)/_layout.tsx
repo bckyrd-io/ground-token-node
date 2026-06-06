@@ -91,6 +91,8 @@ const MenuComponent = React.forwardRef<BottomSheetModal, Omit<MenuModalProps, 'v
     );
 });
 
+MenuComponent.displayName = 'MenuComponent';
+
 export default function AdminTabsLayout() {
     const router = useRouter();
     const bottomSheetModalRef = useRef<BottomSheetModal>(null);

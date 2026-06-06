@@ -3,15 +3,13 @@ import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, forwardRef } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/app/store';
+// eslint-disable-next-line import/no-named-as-default
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
 export const ActivityDetailSheet = forwardRef<any, { activityId?: string }>((props, ref) => {
-    const closeSheet = () => {
-        if (ref && 'current' in ref && ref.current) ref.current.dismiss();
-    };
     const activityId = props.activityId || '1'; // Fallback to '1' if not provided
     const { activityDetails, fetchActivityDetail } = useStore();
     const activity = activityDetails[activityId];
@@ -86,6 +84,8 @@ export const ActivityDetailSheet = forwardRef<any, { activityId?: string }>((pro
         </ScreenBottomSheet>
     );
 });
+
+        ActivityDetailSheet.displayName = 'ActivityDetailSheet';
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },

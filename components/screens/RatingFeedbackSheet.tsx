@@ -1,12 +1,11 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useState, forwardRef } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/app/store';
 import { showToast } from '@/app/toast';
+// eslint-disable-next-line import/no-named-as-default
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
 export const RatingFeedbackSheet = forwardRef<any, { activityId?: string }>((props, ref) => {
@@ -86,7 +85,7 @@ export const RatingFeedbackSheet = forwardRef<any, { activityId?: string }>((pro
         );
     }
 
-    const { quickTags, ratingLabels } = feedbackOptions;
+    const { quickTags } = feedbackOptions;
 
     return (
         <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
@@ -163,6 +162,8 @@ export const RatingFeedbackSheet = forwardRef<any, { activityId?: string }>((pro
         </ScreenBottomSheet>
     );
 });
+
+        RatingFeedbackSheet.displayName = 'RatingFeedbackSheet';
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },

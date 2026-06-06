@@ -7,6 +7,7 @@ import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/app/store';
 import { showToast } from '@/app/toast';
+// eslint-disable-next-line import/no-named-as-default
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
 export const ConfirmPaymentSheet = forwardRef<any, { activityId?: string }>((props, ref) => {
@@ -279,6 +280,8 @@ export const ConfirmPaymentSheet = forwardRef<any, { activityId?: string }>((pro
         </ScreenBottomSheet>
     );
 });
+
+        ConfirmPaymentSheet.displayName = 'ConfirmPaymentSheet';
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },
