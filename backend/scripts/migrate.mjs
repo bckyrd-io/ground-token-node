@@ -1,15 +1,20 @@
 /**
- * Applies backend/schema.sql and backend/seed-data.sql to the configured
- * Postgres, so a brand new database (Render's, or a fresh local one) can be
- * brought up to the exact shape of the machine you developed on.
+ * Applies backend/schema.sql and a data file to the configured Postgres, so a
+ * brand new database (Render's, or a fresh local one) can be brought up to the
+ * shape of the machine you developed on.
  *
  *   npm run db:migrate              schema + data, into whatever SERVER_MODE points at
  *   npm run db:reset                drop everything first, then schema + data
- *   node scripts/migrate.mjs --mode=online --schema-only
+ *   npm run db:migrate -- --schema-only
+ *   npm run db:migrate -- --data=seed-data.local.sql   seed from your own dump
  *
  * Target selection matches server.ts: SERVER_MODE / --mode= picks
  * .env.production (online) or .env (local). On Render the dashboard's
  * DATABASE_URL wins automatically, so this needs no local config at all.
+ *
+ * seed-data.sql is scrubbed and safe to commit. seed-data.local.sql is your
+ * real dump -- git-ignored, never deployed -- for seeding a throwaway
+ * environment when you want the unredacted rows.
  */
 
 import dotenv from 'dotenv';
@@ -125,7 +130,17 @@ async function main() {
     if (has('schema-only')) {
         console.log('- Data: skipped (--schema-only)');
     } else {
-        await applySql('data', 'seed-data.sql');
+        // Default to the scrubbed, committed seed. --data=<file> points at a
+        // different dump, which is how you seed a throwaway environment from
+        // your own unredacted rows.
+        const dataFile = valueOf('data') ?? 'seed-data.sql';
+        if (!fs.existsSync(path.join(root, dataFile))) {
+            throw new Error(
+                `data file "${dataFile}" not found in ${root}.\n` +
+                `  Check the --data=<path> spelling, or drop the flag to use the committed seed-data.sql.`
+            );
+        }
+        await applySql('data', dataFile);
     }
 
     const { rows: tables } = await client.query(

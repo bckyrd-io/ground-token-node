@@ -59,6 +59,10 @@ backend/server.d.ts.map
 # backend dev scratch / diagnostic scripts (_dbcheck.mjs, _rendercheck.mjs, ...)
 backend/_*.mjs
 
+# your own unredacted pg_dump output — real passwords and gateway records.
+# backend/seed-data.sql is the scrubbed, committed version; this one is not.
+backend/seed-data.local.sql
+
 # uploaded activity images — runtime data, not source.
 # ground1-4.jpg are seed fixtures referenced by the seed data, so they stay tracked.
 backend/uploads/image-*
