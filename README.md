@@ -117,16 +117,36 @@ pg_dump -h localhost -U postgres -d postgres_ground_token --data-only --inserts 
    npm run db:reset
    ```
 
-   Pre-deploy hooks need a paid plan, and the internal database URL is only
-   reachable from inside Render's network — hence the Shell tab rather than your
-   machine.
+   The schema and the scrubbed seed both live in the repo, so this is the same
+   command you ran locally. Pre-deploy hooks need a paid plan, and the internal
+   database URL is only reachable from inside Render's network — hence the Shell
+   tab rather than your machine.
 
-6. Check it:
+6. Check it — this hits every endpoint plus a real login, and names whatever
+   broke:
 
    ```bash
-   curl https://<service>.onrender.com/ping        # liveness, no database
-   curl https://<service>.onrender.com/api/health  # readiness, real query
+   npm run deploy:verify -- https://<service>.onrender.com
    ```
+
+   The first run after the free instance sleeps will be slow while it wakes.
+
+### Filling `.env.production` without hand-editing it
+
+One URL replaces five hand-typed variables, which is where mistakes creep in:
+
+```bash
+npm run db:configure-online -- "postgresql://user:pass@host:5432/db"
+```
+
+It splits the URL, forces `DB_SSL=true`, keeps any PayChangu keys already in the
+file, never prints the password, and warns on the two traps that produce
+confusing failures much later — a bare `dpg-…` id with no domain, and an
+*external* host instead of the internal one.
+
+Run it on your machine to get a correct reference copy of
+`backend/.env.production` (git-ignored). It cannot make `npm run dev:online`
+reach the Render database: the internal host only resolves inside Render.
 
 ### Two things about the free plan
 
@@ -209,6 +229,26 @@ Left deliberately out of this deployment pass, for a later pass:
   restart; the nine store actions swallow errors to `console.error`.
 - **`SESSION_DURATION_MS` is 60 seconds** (`backend/server.ts`), hardcoded for
   testing.
-- **`backend/seed-data.sql` is committed** and contains your test users'
-  plaintext passwords and PayChangu sandbox transaction records, including real
-  phone numbers. It is in public git history.
+
+## About the seed data
+
+`backend/seed-data.sql` is committed and **scrubbed**: the two guest accounts
+created during phone testing and both `payments` rows are gone, every phone
+number is a placeholder, and activity 5's uploaded image is nulled (the file it
+pointed at was never committed). What remains is the four role accounts with
+the credentials already documented in `backend/.env.example`, so local and
+deployed logins behave the same.
+
+Your unredacted dump lives at `backend/seed-data.local.sql`. It is git-ignored
+and never deployed. Use it to seed a throwaway environment:
+
+```bash
+npm run db:migrate -- --data=seed-data.local.sql
+```
+
+That file was committed before it was scrubbed, so the original rows are still
+in this repository's git history. If you need them gone, rewrite history
+(`git filter-repo --path backend/seed-data.sql --invert-paths`) and force-push
+all three branches — that rewrites SHAs and invalidates existing clones, so
+decide before anyone else works on the repo.
+

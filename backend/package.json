@@ -11,6 +11,8 @@
     "db:setup": "node setup_local_db.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "db:reset": "node scripts/migrate.mjs --drop",
+    "db:configure-online": "node scripts/configure-online.mjs",
+    "deploy:verify": "node scripts/verify-deploy.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
