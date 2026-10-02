@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Single source of truth for the API base URL.
  *
  * Everything that talks to the backend imports API_URL from here rather than
@@ -17,7 +17,7 @@
  *   EAS build  -> the "env" block on the profile in eas.json
  */
 
-/** Base URL with no trailing slash, e.g. https://ground-token-api.onrender.com */
+/** Base URL with no trailing slash, e.g. https://ground-token-node.onrender.com */
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/+$/, '');
 
 if (!API_URL) {

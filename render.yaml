@@ -1,24 +1,28 @@
-# Render blueprint - the API server and its Postgres.
+﻿# Render blueprint - the API server and its Postgres.
+#
+# NOTE ON NAMES: these match what is actually deployed, so applying this to an
+# account that already has them UPDATES them rather than creating duplicates:
+#   databases[0].name            -> gtn-pg          (dpg-davuu7m0tbcc73fgo1cg-a)
+#   services[0].name             -> ground-token-node
+#                                    https://ground-token-node.onrender.com
+# The web service was repaired in place rather than recreated, so its hostname
+# is ground-token-node, NOT ground-token-api. eas.json must match whichever host
+# is real or every build calls a name that does not resolve.
 #
 # Apply from the Render dashboard:  New -> Blueprint -> point at this repo.
-# Both resources below then get created together, and the web service is
-# automatically handed the database's internal connection details.
-#
-# Swap the offline/LAN target for this one by switching SERVER_MODE on the
-# backend - see backend/.env.production.example.
 
 databases:
-  - name: ground-token-db
+  - name: gtn-pg
     # NOTE: the free plan expires 30 days after creation, then deletes the data
     # after a 14-day grace period. Render emails you before it happens.
     # backend/schema.sql + backend/seed-data.sql are the source of truth and are
     # committed, so a fresh database is always one `npm run db:reset` away.
     plan: free
-    postgresMajorVersion: "16"
+    postgresMajorVersion: "18"
 
 services:
   - type: web
-    name: ground-token-api
+    name: ground-token-node
     runtime: node
     plan: free
     branch: main
@@ -74,15 +78,15 @@ services:
       # server.ts prefers DATABASE_URL when it is set.
       - key: DATABASE_URL
         fromDatabase:
-          name: ground-token-db
+          name: gtn-pg
           property: connectionString
       - key: DB_USER
         fromDatabase:
-          name: ground-token-db
+          name: gtn-pg
           property: user
       - key: DB_NAME
         fromDatabase:
-          name: ground-token-db
+          name: gtn-pg
           property: database
 
       # -- required by managed Postgres --
