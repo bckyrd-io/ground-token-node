@@ -1,14 +1,18 @@
 /**
  * Backend Server - Ground Token Application
  *
- * Environment Variables (.env):
+ * Environment Variables:
  * - DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME: Database config
+ * - DB_SSL: 'true' to require TLS (Render Postgres requires it)
+ * - DB_CONNECT_ATTEMPTS: how hard to retry the initial connection (default 10)
+ * - UPLOAD_DIR: where uploaded images are written (default ./uploads)
  * - PORT: Server port (default: 5000)
  * - NODE_ENV: Environment (development/production)
+ * - SERVER_MODE: 'local' | 'online' — selects which .env file to load
  */
 
 import cors from 'cors';
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import fs from 'fs';
 import multer from 'multer';
@@ -17,6 +21,39 @@ import pg from 'pg';
 import { fileURLToPath } from 'url';
 
 const { Pool } = pg;
+
+// ──────────────────────────────────────────────
+// Environment loading — SERVER_MODE
+// ──────────────────────────────────────────────
+// Two files, so switching targets never means editing config:
+//
+//   backend/.env            offline / LAN defaults (always loaded, as the base)
+//   backend/.env.production Render deployment    (loaded only when online)
+//
+// Pick the target with SERVER_MODE=online or the --mode=online flag. The flag
+// exists because `SERVER_MODE=x npm run dev` is POSIX shell syntax and silently
+// does the wrong thing in PowerShell / cmd on Windows.
+//
+// Precedence, highest first:
+//   real environment variables  >  .env.production (online only)  >  .env
+// dotenv never overwrites a variable that is already set, so load order *is*
+// the precedence order.
+const SERVER_MODE = (() => {
+    const flag = process.argv.find((arg) => arg.startsWith('--mode='));
+    const fromFlag = flag ? flag.slice('--mode='.length) : '';
+    const raw = (process.env.SERVER_MODE || fromFlag || 'local').trim().toLowerCase();
+    return raw === 'online' ? 'online' : 'local';
+})();
+
+if (SERVER_MODE === 'online') {
+    const { error } = dotenv.config({ path: '.env.production' });
+    if (error) {
+        console.warn('[env] backend/.env.production not found — falling back to .env and real env vars.');
+    }
+}
+
+// Base config. Anything the file above already set is left alone.
+dotenv.config();
 
 // PayChangu Configuration
 const PAYCHANGU_SECRET_KEY = process.env.PAYCHANGU_SECRET_KEY || '';
@@ -153,14 +190,23 @@ const PORT = (() => {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Uploaded images are written to the local filesystem, so they live for exactly
+// as long as the filesystem does. On Render that means they vanish on every
+// redeploy. Set UPLOAD_DIR to a mounted persistent disk when that stops being
+// acceptable — nothing else has to change.
+const UPLOAD_DIR = process.env.UPLOAD_DIR
+    ? path.resolve(process.env.UPLOAD_DIR)
+    : path.join(__dirname, 'uploads');
+
+// Create it before the server ever accepts a request. express.static() cannot
+// create the directory it serves, so on a fresh checkout every /uploads/*
+// request would 404 until some admin happened to upload an image first.
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
 // File upload configuration
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadPath = path.join(__dirname, 'uploads');
-        if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-        }
-        cb(null, uploadPath);
+        cb(null, UPLOAD_DIR);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -185,7 +231,24 @@ const upload = multer({
 // ──────────────────────────────────────────────
 let pool: pg.Pool;
 
-async function initializeDatabase(attempt = 1, maxAttempts = 5): Promise<boolean> {
+// Render's Postgres rejects plaintext connections, so TLS is mandatory there
+// and pointless on a local socket. Gate it instead of hardcoding it — the local
+// dev Postgres has no certificate to negotiate.
+const DB_SSL = process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
+
+// Render's free tier spins a cold instance up from scratch, and Postgres is
+// frequently not accepting connections yet when our first query lands. Retry
+// generously before giving up, or the deploy fails on a race.
+const DB_CONNECT_MAX_ATTEMPTS = (() => {
+    const parsed = parseInt(process.env.DB_CONNECT_ATTEMPTS || '10', 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+        console.warn(`Invalid DB_CONNECT_ATTEMPTS "${process.env.DB_CONNECT_ATTEMPTS}" — using 10`);
+        return 10;
+    }
+    return parsed;
+})();
+
+async function initializeDatabase(attempt = 1, maxAttempts = DB_CONNECT_MAX_ATTEMPTS): Promise<boolean> {
     if (!pool) {
         pool = new Pool({
             host: process.env.DB_HOST || 'localhost',
@@ -193,6 +256,7 @@ async function initializeDatabase(attempt = 1, maxAttempts = 5): Promise<boolean
             user: process.env.DB_USER || 'postgres',
             password: process.env.DB_PASSWORD || 'postgres',
             database: process.env.DB_NAME || 'db_ground_token',
+            ssl: DB_SSL,
             max: 10,
             connectionTimeoutMillis: 5_000,
             idleTimeoutMillis: 30_000,
@@ -219,7 +283,8 @@ async function initializeDatabase(attempt = 1, maxAttempts = 5): Promise<boolean
         );
 
         if (attempt >= maxAttempts) {
-            console.error('Giving up on database. Check DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME in backend/.env');
+            console.error(`Giving up on database after ${maxAttempts} attempts.`);
+            console.error(`Check DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME in backend/.env${SERVER_MODE === 'online' ? '.production' : ''}`);
             return false;
         }
 
@@ -264,7 +329,7 @@ app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 // Request logging — without this a hung request is invisible from the outside,
 // which is exactly why the server "looks dead".
@@ -1599,6 +1664,9 @@ async function startServer(): Promise<void> {
 
     httpServer.on('listening', () => {
         console.log(`✓ Server running on http://${HOST}:${PORT}  (pid ${process.pid})`);
+        console.log(`  Mode     : ${SERVER_MODE}${SERVER_MODE === 'online' ? ' (backend/.env.production)' : ' (backend/.env)'}`);
+        console.log(`  Database : ${process.env.DB_HOST}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME}  ssl=${DB_SSL ? 'on' : 'off'}`);
+        console.log(`  Uploads  : ${UPLOAD_DIR}`);
         console.log(`  Liveness : http://localhost:${PORT}/ping`);
         console.log(`  Readiness: http://localhost:${PORT}/api/health`);
     });

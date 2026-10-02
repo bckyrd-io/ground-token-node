@@ -1,18 +1,25 @@
 {
   "name": "backend",
   "version": "2.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Ground Token API server",
+  "main": "server.js",
   "scripts": {
-    "dev": "ts-node server.ts",
-    "start": "node server.ts",
+    "dev": "ts-node server.ts --mode=local",
+    "dev:online": "ts-node server.ts --mode=online",
     "build": "tsc",
+    "start": "node server.js",
+    "db:setup": "node setup_local_db.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:reset": "node scripts/migrate.mjs --drop",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

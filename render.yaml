@@ -1,0 +1,96 @@
+# Render blueprint - the API server and its Postgres.
+#
+# Apply from the Render dashboard:  New -> Blueprint -> point at this repo.
+# Both resources below then get created together, and the web service is
+# automatically handed the database's internal connection details.
+#
+# Swap the offline/LAN target for this one by switching SERVER_MODE on the
+# backend - see backend/.env.production.example.
+
+databases:
+  - name: ground-token-db
+    # NOTE: the free plan expires 30 days after creation, then deletes the data
+    # after a 14-day grace period. Render emails you before it happens.
+    # backend/schema.sql + backend/seed-data.sql are the source of truth and are
+    # committed, so a fresh database is always one `npm run db:reset` away.
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: ground-token-api
+    runtime: node
+    plan: free
+    branch: main
+    rootDir: backend
+
+    # tsc emits server.js next to server.ts (tsconfig has no outDir), so start
+    # the compiled output rather than server.ts. Node's native TypeScript
+    # type-stripping is only on by default from 23.6+, and Render's default
+    # runtime is older than that.
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+
+    # Deliberately /ping and not /: it answers without touching Postgres, so a
+    # cold instance is never marked dead just because the database is still
+    # waking up. Use /api/health for real readiness.
+    healthCheckPath: /ping
+
+    # Uploaded images go to ./uploads, which is ephemeral here - every redeploy
+    # clears it, so re-upload activities after a deploy. That is accepted for
+    # this test build. UPLOAD_DIR is left unset so the code resolves ./uploads
+    # relative to the compiled server.js.
+    #
+    # To make them stick later: move `plan: free` to a paid instance, add
+    #
+    #   disk:
+    #     name: uploads
+    #     mountPath: /var/data/uploads
+    #     sizeGB: 1
+    #
+    # then add - key: UPLOAD_DIR / value: /var/data/uploads to envVars below.
+
+    envVars:
+      # -- database, injected from the Postgres above --
+      - key: DB_HOST
+        fromDatabase:
+          name: ground-token-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: ground-token-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: ground-token-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: ground-token-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: ground-token-db
+          property: database
+
+      # -- required by managed Postgres --
+      - key: DB_SSL
+        value: "true"
+      - key: DB_CONNECT_ATTEMPTS
+        value: "10"
+
+      - key: SERVER_MODE
+        value: online
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+
+      # -- PayChangu: set the secrets in the dashboard, never in this file --
+      # Test keys for now; swap for live keys when payments go real.
+      - key: PAYCHANGU_SECRET_KEY
+        sync: false
+      - key: PAYCHANGU_BASE_URL
+        value: https://api.paychangu.com
+      - key: WEBHOOK_SECRET
+        sync: false
