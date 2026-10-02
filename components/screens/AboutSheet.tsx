@@ -10,7 +10,7 @@ import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 export const AboutSheet = forwardRef<any, any>((props, ref) => {
 
     return (
-        <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
+        <ScreenBottomSheet ref={ref} snapPoints={['90%']} scrollable>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
                 <BottomSheetScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
                     {/* App Logo/Header */}

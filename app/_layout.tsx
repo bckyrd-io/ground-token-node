@@ -1,5 +1,4 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react'; // Added
 import { Alert } from 'react-native'; // Added
@@ -62,7 +61,6 @@ export default function RootLayout() {
                                 }}
                             />
                             <Stack.Screen name="(visitor-tabs)" />
-                            <Stack.Screen name="(staff-tabs)" />
                             <Stack.Screen name="(admin-tabs)" />
                             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
                         </Stack>

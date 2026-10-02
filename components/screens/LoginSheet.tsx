@@ -5,7 +5,7 @@ import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,6 +14,9 @@ type LoginSheetProps = {
     onLoginSuccess?: () => void;
 };
 
+const USERNAME_MAX = 100;
+const PASSWORD_MAX = 255;
+
 export const LoginSheet = forwardRef<any, LoginSheetProps>((props, ref) => {
     const router = useRouter();
     const { setProfile } = useStore();
@@ -21,6 +24,33 @@ export const LoginSheet = forwardRef<any, LoginSheetProps>((props, ref) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const atLimitRef = useRef<{ username: boolean; password: boolean }>({ username: false, password: false });
+
+    const handleUsernameChange = (text: string) => {
+        if (text.length > USERNAME_MAX) {
+            if (!atLimitRef.current.username) {
+                atLimitRef.current.username = true;
+                showToast(`Username cannot exceed ${USERNAME_MAX} characters`, 'error');
+            }
+            setUsername(text.slice(0, USERNAME_MAX));
+            return;
+        }
+        atLimitRef.current.username = false;
+        setUsername(text);
+    };
+
+    const handlePasswordChange = (text: string) => {
+        if (text.length > PASSWORD_MAX) {
+            if (!atLimitRef.current.password) {
+                atLimitRef.current.password = true;
+                showToast(`Password cannot exceed ${PASSWORD_MAX} characters`, 'error');
+            }
+            setPassword(text.slice(0, PASSWORD_MAX));
+            return;
+        }
+        atLimitRef.current.password = false;
+        setPassword(text);
+    };
 
     const closeSheet = () => {
         if (ref && 'current' in ref && ref.current) {
@@ -29,7 +59,8 @@ export const LoginSheet = forwardRef<any, LoginSheetProps>((props, ref) => {
     };
 
     const handleLogin = async () => {
-        if (!username || !password) {
+        const trimmedUsername = username.trim();
+        if (!trimmedUsername || !password) {
             showToast('Please enter both username and password');
             return;
         }
@@ -43,7 +74,7 @@ export const LoginSheet = forwardRef<any, LoginSheetProps>((props, ref) => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ username: trimmedUsername, password }),
             });
 
             const data = await response.json();
@@ -67,11 +98,11 @@ export const LoginSheet = forwardRef<any, LoginSheetProps>((props, ref) => {
 
                 if (data.user.role === 'visitor') {
                     router.replace('/(visitor-tabs)/activityCatalogScreen');
-                } else if (data.user.role === 'admin') {
-                    router.replace('/(admin-tabs)/adminDashboardScreen');
                 } else {
-                    showToast(data.error || 'Login failed');
+                    router.replace('/(admin-tabs)/adminDashboardScreen');
                 }
+            } else {
+                showToast(data.error || 'Invalid username or password');
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -88,36 +119,46 @@ export const LoginSheet = forwardRef<any, LoginSheetProps>((props, ref) => {
                     {/* <Text style={styles.formTitle}>Welcome Back</Text>
                     <Text style={styles.formSubtitle}>Welcome Back</Text> */}
 
-                    <View style={styles.inputWrapper}>
-                        <MaterialIcons name="person" size={20} color={COLORS.slate400} style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.textInput}
-                            placeholder="Enter your username"
-                            placeholderTextColor={FORM_INPUT_TOKENS.placeholderColor}
-                            value={username}
-                            onChangeText={setUsername}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                        />
+                    <View style={styles.field}>
+                        <View style={styles.inputWrapper}>
+                            <MaterialIcons name="person" size={20} color={COLORS.slate400} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="Enter your username"
+                                placeholderTextColor={FORM_INPUT_TOKENS.placeholderColor}
+                                value={username}
+                                onChangeText={handleUsernameChange}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                        </View>
+                        <Text style={[styles.counter, username.length >= USERNAME_MAX && styles.counterAtLimit]}>
+                            {`${username.length}/${USERNAME_MAX}`}
+                        </Text>
                     </View>
 
-                    <View style={styles.inputWrapper}>
-                        <MaterialIcons name="lock" size={20} color={COLORS.slate400} style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.textInput}
-                            placeholder="Enter your password"
-                            placeholderTextColor={FORM_INPUT_TOKENS.placeholderColor}
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry={!showPassword}
-                        />
-                        <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
-                            <MaterialIcons
-                                name={showPassword ? 'visibility' : 'visibility-off'}
-                                size={20}
-                                color={COLORS.slate400}
+                    <View style={styles.field}>
+                        <View style={styles.inputWrapper}>
+                            <MaterialIcons name="lock" size={20} color={COLORS.slate400} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="Enter your password"
+                                placeholderTextColor={FORM_INPUT_TOKENS.placeholderColor}
+                                value={password}
+                                onChangeText={handlePasswordChange}
+                                secureTextEntry={!showPassword}
                             />
-                        </TouchableOpacity>
+                            <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
+                                <MaterialIcons
+                                    name={showPassword ? 'visibility' : 'visibility-off'}
+                                    size={20}
+                                    color={COLORS.slate400}
+                                />
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={[styles.counter, password.length >= PASSWORD_MAX && styles.counterAtLimit]}>
+                            {`${password.length}/${PASSWORD_MAX}`}
+                        </Text>
                     </View>
 
                     <TouchableOpacity
@@ -138,12 +179,12 @@ LoginSheet.displayName = 'LoginSheet';
 
 const styles = StyleSheet.create({
     safeArea: {
-        flex: 1,
+        flexGrow: 1,
         backgroundColor: COLORS.white,
         paddingTop: Platform.OS === 'android' ? 25 : 0,
     },
     container: {
-        flex: 1,
+        flexGrow: 1,
         justifyContent: 'center',
         paddingHorizontal: 24,
         paddingBottom: 32,
@@ -161,10 +202,22 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 32,
     },
+    field: {
+        marginBottom: 20,
+    },
     inputWrapper: {
         position: 'relative',
         justifyContent: 'center',
-        marginBottom: 20,
+    },
+    counter: {
+        fontSize: 11,
+        color: COLORS.slate400,
+        textAlign: 'right',
+        marginTop: 4,
+    },
+    counterAtLimit: {
+        color: COLORS.red600,
+        fontWeight: '600',
     },
     inputIcon: {
         position: 'absolute',

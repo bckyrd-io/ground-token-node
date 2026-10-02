@@ -667,7 +667,7 @@ app.post('/api/auth/login', async (req, res) => {
             SELECT u.*, s."staffId", s.status AS "staffStatus"
             FROM users u
             LEFT JOIN staff s ON u.id = s."userId"
-            WHERE u.username = $1 AND u."isActive" = true
+            WHERE (u.username = $1 OR u.email = $1) AND u."isActive" = true
         `, [username]);
         if (users.length === 0)
             return res.status(401).json({ error: 'Invalid credentials' });

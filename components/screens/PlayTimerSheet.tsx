@@ -158,7 +158,7 @@ export const PlayTimerSheet = forwardRef<any, { tokenId?: string, onFinish?: (ac
         PlayTimerSheet.displayName = 'PlayTimerSheet';
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: COLORS.bgLight, paddingTop: Platform.OS === 'android' ? 25 : 0 },
+    safeArea: { flexGrow: 1, backgroundColor: COLORS.bgLight, paddingTop: Platform.OS === 'android' ? 25 : 0 },
     header: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
         width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
     },
     headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.slate900 },
-    content: { flex: 1, paddingHorizontal: 24, paddingTop: 32, paddingBottom: 48 },
+    content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 32, paddingBottom: 48 },
     timerSection: { alignItems: 'center', justifyContent: 'center', marginBottom: 40 },
     timerCircle: {
         width: 256, height: 256, borderRadius: 128,

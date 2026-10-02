@@ -199,7 +199,7 @@ export const ActivityCapacitySheet = forwardRef<any, ActivityCapacitySheetProps>
     };
 
     return (
-        <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
+        <ScreenBottomSheet ref={ref} snapPoints={['90%']} scrollable>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.header}>
                     <Text style={styles.title}>Capacity Control</Text>
@@ -402,10 +402,10 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.slate200,
     },
     heroImage: {
-        ...StyleSheet.absoluteFillObject,
+        ...(StyleSheet.absoluteFill as object),
     },
     heroOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...(StyleSheet.absoluteFill as object),
         justifyContent: 'flex-end',
         padding: 16,
         backgroundColor: 'rgba(15,23,42,0.22)',

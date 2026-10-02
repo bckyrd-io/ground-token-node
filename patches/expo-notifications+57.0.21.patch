@@ -1,0 +1,172 @@
+diff --git a/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js b/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js
+index 2e58ef1..a84ca24 100644
+--- a/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js
++++ b/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoBackgroundNotificationTasksModule');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoBackgroundNotificationTasksModule') ?? {};
+ //# sourceMappingURL=BackgroundNotificationTasksModule.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/BadgeModule.native.js b/node_modules/expo-notifications/build/BadgeModule.native.js
+index e48b688..50d043f 100644
+--- a/node_modules/expo-notifications/build/BadgeModule.native.js
++++ b/node_modules/expo-notifications/build/BadgeModule.native.js
+@@ -1,5 +1,5 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-const nativeModule = requireNativeModule('ExpoBadgeModule');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++const nativeModule = requireOptionalNativeModule('ExpoBadgeModule') ?? {};
+ export default {
+     ...nativeModule,
+     // We overwrite setBadgeCountAsync to omit
+diff --git a/node_modules/expo-notifications/build/DevicePushTokenAutoRegistration.fx.js b/node_modules/expo-notifications/build/DevicePushTokenAutoRegistration.fx.js
+index 85cd97c..c30ef11 100644
+--- a/node_modules/expo-notifications/build/DevicePushTokenAutoRegistration.fx.js
++++ b/node_modules/expo-notifications/build/DevicePushTokenAutoRegistration.fx.js
+@@ -1,5 +1,6 @@
+ import 'abort-controller/polyfill';
+-import { UnavailabilityError } from 'expo-modules-core';
++import { isRunningInExpoGo } from 'expo';
++import { Platform, UnavailabilityError } from 'expo-modules-core';
+ import ServerRegistrationModule from './ServerRegistrationModule';
+ import { addPushTokenListener } from './TokenEmitter';
+ import { getDevicePushTokenAsync } from './getDevicePushTokenAsync';
+@@ -72,7 +73,11 @@ export async function __handlePersistedRegistrationInfoAsync(registrationInfo) {
+         console.warn('[expo-notifications] Error encountered while updating server registration with latest device push token.', e);
+     }
+ }
+-if (ServerRegistrationModule.getRegistrationInfoAsync) {
++if (isRunningInExpoGo() && Platform.OS === 'android') {
++    // Registering the module-scope push token listener would throw and make the import fatal.
++    console.warn('[expo-notifications] Push notifications (remote notifications) are unavailable in Expo Go on Android since SDK 53. Local notifications remain available. Use a development build for push notifications: https://docs.expo.dev/develop/development-builds/introduction/');
++}
++else if (ServerRegistrationModule.getRegistrationInfoAsync) {
+     // A global scope (to get all the updates) device push token
+     // subscription, never cleared.
+     addPushTokenListener(async (token) => {
+diff --git a/node_modules/expo-notifications/build/NotificationCategoriesModule.native.js b/node_modules/expo-notifications/build/NotificationCategoriesModule.native.js
+index 9cd4941..70e55ce 100644
+--- a/node_modules/expo-notifications/build/NotificationCategoriesModule.native.js
++++ b/node_modules/expo-notifications/build/NotificationCategoriesModule.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoNotificationCategoriesModule');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoNotificationCategoriesModule') ?? {};
+ //# sourceMappingURL=NotificationCategoriesModule.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/NotificationChannelGroupManager.native.js b/node_modules/expo-notifications/build/NotificationChannelGroupManager.native.js
+index 71172c5..d88957b 100644
+--- a/node_modules/expo-notifications/build/NotificationChannelGroupManager.native.js
++++ b/node_modules/expo-notifications/build/NotificationChannelGroupManager.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoNotificationChannelGroupManager');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoNotificationChannelGroupManager') ?? {};
+ //# sourceMappingURL=NotificationChannelGroupManager.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/NotificationChannelManager.native.js b/node_modules/expo-notifications/build/NotificationChannelManager.native.js
+index ac38206..95bc540 100644
+--- a/node_modules/expo-notifications/build/NotificationChannelManager.native.js
++++ b/node_modules/expo-notifications/build/NotificationChannelManager.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoNotificationChannelManager');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoNotificationChannelManager') ?? {};
+ //# sourceMappingURL=NotificationChannelManager.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/NotificationPermissionsModule.native.js b/node_modules/expo-notifications/build/NotificationPermissionsModule.native.js
+index 1ecc25a..aa72ccb 100644
+--- a/node_modules/expo-notifications/build/NotificationPermissionsModule.native.js
++++ b/node_modules/expo-notifications/build/NotificationPermissionsModule.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoNotificationPermissionsModule');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoNotificationPermissionsModule') ?? {};
+ //# sourceMappingURL=NotificationPermissionsModule.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/NotificationPresenterModule.native.js b/node_modules/expo-notifications/build/NotificationPresenterModule.native.js
+index 9d5c151..c5d817c 100644
+--- a/node_modules/expo-notifications/build/NotificationPresenterModule.native.js
++++ b/node_modules/expo-notifications/build/NotificationPresenterModule.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoNotificationPresenter');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoNotificationPresenter') ?? {};
+ //# sourceMappingURL=NotificationPresenterModule.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/NotificationScheduler.native.js b/node_modules/expo-notifications/build/NotificationScheduler.native.js
+index 74d0692..077faa9 100644
+--- a/node_modules/expo-notifications/build/NotificationScheduler.native.js
++++ b/node_modules/expo-notifications/build/NotificationScheduler.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoNotificationScheduler');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoNotificationScheduler') ?? {};
+ //# sourceMappingURL=NotificationScheduler.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/NotificationsEmitterModule.native.js b/node_modules/expo-notifications/build/NotificationsEmitterModule.native.js
+index 5693145..fcd45b6 100644
+--- a/node_modules/expo-notifications/build/NotificationsEmitterModule.native.js
++++ b/node_modules/expo-notifications/build/NotificationsEmitterModule.native.js
+@@ -1,3 +1,6 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoNotificationsEmitter');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoNotificationsEmitter') ?? {
++    addListener: () => { },
++    removeListeners: () => { },
++};
+ //# sourceMappingURL=NotificationsEmitterModule.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/NotificationsHandlerModule.native.js b/node_modules/expo-notifications/build/NotificationsHandlerModule.native.js
+index 473509f..c953c0d 100644
+--- a/node_modules/expo-notifications/build/NotificationsHandlerModule.native.js
++++ b/node_modules/expo-notifications/build/NotificationsHandlerModule.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoNotificationsHandlerModule');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoNotificationsHandlerModule') ?? {};
+ //# sourceMappingURL=NotificationsHandlerModule.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/PushTokenManager.native.js b/node_modules/expo-notifications/build/PushTokenManager.native.js
+index 27bd573..1d0f0b0 100644
+--- a/node_modules/expo-notifications/build/PushTokenManager.native.js
++++ b/node_modules/expo-notifications/build/PushTokenManager.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoPushTokenManager');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoPushTokenManager') ?? {};
+ //# sourceMappingURL=PushTokenManager.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/ServerRegistrationModule.native.js b/node_modules/expo-notifications/build/ServerRegistrationModule.native.js
+index 359d085..85d3d77 100644
+--- a/node_modules/expo-notifications/build/ServerRegistrationModule.native.js
++++ b/node_modules/expo-notifications/build/ServerRegistrationModule.native.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('NotificationsServerRegistrationModule');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('NotificationsServerRegistrationModule') ?? {};
+ //# sourceMappingURL=ServerRegistrationModule.native.js.map
+\ No newline at end of file
+diff --git a/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js b/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js
+index 644a8bb..7d853aa 100644
+--- a/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js
++++ b/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js
+@@ -1,3 +1,3 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoTopicSubscriptionModule');
++import { requireOptionalNativeModule } from 'expo-modules-core';
++export default requireOptionalNativeModule('ExpoTopicSubscriptionModule') ?? {};
+ //# sourceMappingURL=TopicSubscriptionModule.android.js.map
+\ No newline at end of file

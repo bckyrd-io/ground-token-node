@@ -38,7 +38,7 @@ export const ActivityDetailSheet = forwardRef<any, { activityId?: string }>((pro
     }
 
     return (
-        <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
+        <ScreenBottomSheet ref={ref} snapPoints={['90%']} scrollable>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
                 <BottomSheetScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
                     {/* Hero Image */}

@@ -1,7 +1,7 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useEffect, useState, forwardRef } from 'react';
+import React, { useEffect, useState, forwardRef, useRef } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Profile } from '@/app/store';
@@ -10,10 +10,22 @@ import { showToast } from '@/app/toast';
 // eslint-disable-next-line import/no-named-as-default
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 
+const USERNAME_MAX = 100;
+const EMAIL_MAX = 255;
+const PHONE_MAX = 20;
+const PASSWORD_MAX = 255;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^\+?[\d\s-]{7,20}$/;
 
 export const AccountSheet = forwardRef<any, any>((props, ref) => {
     const { profile, setProfile } = useStore();
     const [isLoading, setIsLoading] = useState(false);
+    const atLimitRef = useRef<{ username: boolean; email: boolean; phone: boolean; password: boolean }>({
+        username: false,
+        email: false,
+        phone: false,
+        password: false,
+    });
 
     // Use profile from store directly (set during login)
     const userData = {
@@ -42,9 +54,60 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
         });
     }, [userData.username, userData.email, userData.phone]);
 
+    const makeCharLimitHandler = (
+        field: 'username' | 'email' | 'phone' | 'password',
+        max: number,
+        label: string
+    ) => (text: string) => {
+        if (text.length > max) {
+            if (!atLimitRef.current[field]) {
+                atLimitRef.current[field] = true;
+                showToast(`${label} cannot exceed ${max} characters`, 'error');
+            }
+            setFormData(prev => ({ ...prev, [field]: text.slice(0, max) }));
+            return;
+        }
+        atLimitRef.current[field] = false;
+        setFormData(prev => ({ ...prev, [field]: text }));
+    };
+
     const handleUpdate = async () => {
-        if (!formData.username || !formData.email) {
+        const username = formData.username.trim();
+        const email = formData.email.trim();
+        const phone = formData.phone.trim();
+
+        if (!username || !email) {
             showToast('Please fill in all required fields');
+            return;
+        }
+
+        if (username.length > USERNAME_MAX) {
+            showToast(`Username cannot exceed ${USERNAME_MAX} characters`);
+            return;
+        }
+
+        if (!EMAIL_REGEX.test(email)) {
+            showToast('Please enter a valid email address');
+            return;
+        }
+
+        if (email.length > EMAIL_MAX) {
+            showToast(`Email cannot exceed ${EMAIL_MAX} characters`);
+            return;
+        }
+
+        if (phone && !PHONE_REGEX.test(phone)) {
+            showToast('Please enter a valid phone number');
+            return;
+        }
+
+        if (phone.length > PHONE_MAX) {
+            showToast(`Phone number cannot exceed ${PHONE_MAX} characters`);
+            return;
+        }
+
+        if (formData.password.length > PASSWORD_MAX) {
+            showToast(`Password cannot exceed ${PASSWORD_MAX} characters`);
             return;
         }
 
@@ -61,9 +124,9 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
 
             // Build update object - only include password if it's provided
             const updateData: any = {
-                username: formData.username,
-                email: formData.email,
-                phone: formData.phone
+                username,
+                email,
+                phone
             };
 
             // Only include password if it's not empty
@@ -86,9 +149,9 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
                 // Update Zustand store with new profile data
                 setProfile({
                     ...profile,
-                    username: formData.username,
-                    email: formData.email,
-                    phone: formData.phone
+                    username,
+                    email,
+                    phone
                 } as Profile);
                 // Clear password field after successful update
                 setFormData(prev => ({ ...prev, password: '' }));
@@ -106,7 +169,7 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
 
 
     return (
-        <ScreenBottomSheet ref={ref} snapPoints={['90%']}>
+        <ScreenBottomSheet ref={ref} snapPoints={['90%']} scrollable>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
                 <BottomSheetScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
                     {/* Profile Header */}
@@ -135,11 +198,14 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
                                 placeholder="Username"
                                 placeholderTextColor={COLORS.slate400}
                                 value={formData.username}
-                                onChangeText={(text) => setFormData(prev => ({ ...prev, username: text }))}
+                                onChangeText={makeCharLimitHandler('username', USERNAME_MAX, 'Username')}
                                 autoCapitalize="none"
                                 autoCorrect={false}
                             />
                         </View>
+                        <Text style={[styles.counter, formData.username.length >= USERNAME_MAX && styles.counterAtLimit]}>
+                            {`${formData.username.length}/${USERNAME_MAX}`}
+                        </Text>
                     </View>
 
                     <View style={styles.fieldGroup}>
@@ -156,11 +222,14 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
                                 placeholderTextColor={COLORS.slate400}
                                 keyboardType="email-address"
                                 value={formData.email}
-                                onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
+                                onChangeText={makeCharLimitHandler('email', EMAIL_MAX, 'Email')}
                                 autoCapitalize="none"
                                 autoCorrect={false}
                             />
                         </View>
+                        <Text style={[styles.counter, formData.email.length >= EMAIL_MAX && styles.counterAtLimit]}>
+                            {`${formData.email.length}/${EMAIL_MAX}`}
+                        </Text>
                     </View>
 
                     <View style={styles.fieldGroup}>
@@ -177,9 +246,12 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
                                 placeholderTextColor={COLORS.slate400}
                                 keyboardType="phone-pad"
                                 value={formData.phone}
-                                onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
+                                onChangeText={makeCharLimitHandler('phone', PHONE_MAX, 'Phone number')}
                             />
                         </View>
+                        <Text style={[styles.counter, formData.phone.length >= PHONE_MAX && styles.counterAtLimit]}>
+                            {`${formData.phone.length}/${PHONE_MAX}`}
+                        </Text>
                     </View>
 
                     <View style={styles.fieldGroup}>
@@ -196,9 +268,12 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
                                 placeholderTextColor={COLORS.slate400}
                                 secureTextEntry
                                 value={formData.password}
-                                onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
+                                onChangeText={makeCharLimitHandler('password', PASSWORD_MAX, 'Password')}
                             />
                         </View>
+                        <Text style={[styles.counter, formData.password.length >= PASSWORD_MAX && styles.counterAtLimit]}>
+                            {`${formData.password.length}/${PASSWORD_MAX}`}
+                        </Text>
                     </View>
 
                     <TouchableOpacity
@@ -304,6 +379,16 @@ const styles = StyleSheet.create({
         position: 'absolute',
         left: 16,
         zIndex: 1,
+    },
+    counter: {
+        fontSize: 11,
+        color: COLORS.slate400,
+        textAlign: 'right',
+        marginTop: 4,
+    },
+    counterAtLimit: {
+        color: COLORS.red600,
+        fontWeight: '600',
     },
     textInput: {
         height: FORM_INPUT_TOKENS.height,

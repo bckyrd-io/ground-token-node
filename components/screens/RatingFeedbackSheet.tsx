@@ -166,14 +166,14 @@ export const RatingFeedbackSheet = forwardRef<any, { activityId?: string }>((pro
         RatingFeedbackSheet.displayName = 'RatingFeedbackSheet';
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },
+    safeArea: { flexGrow: 1, backgroundColor: COLORS.white, paddingTop: Platform.OS === 'android' ? 25 : 0 },
     header: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.slate100,
     },
     headerBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.slate900, flex: 1, textAlign: 'center' },
-    content: { flex: 1, paddingHorizontal: 24, paddingTop: 32, alignItems: 'center' },
+    content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 32, alignItems: 'center' },
     branding: { alignItems: 'center', marginBottom: 40 },
     logoCircle: {
         width: 96, height: 96, borderRadius: 48, overflow: 'hidden',

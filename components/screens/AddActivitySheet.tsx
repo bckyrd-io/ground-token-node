@@ -3,9 +3,10 @@ import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { File as ExpoFile } from 'expo-file-system';
 import * as Location from 'expo-location';
-import React, { useState, forwardRef } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState, forwardRef } from 'react';
+import { Alert, Linking, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/app/store';
 import { showToast } from '@/app/toast';
@@ -46,9 +47,22 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
         setActivity(initialActivityState);
     };
 
+    useEffect(() => {
+        (async () => {
+            try {
+                const permission = await Location.getForegroundPermissionsAsync();
+                if (permission.status !== 'granted') {
+                    await Location.requestForegroundPermissionsAsync();
+                }
+            } catch (error) {
+                console.error('Location permission request error:', error);
+            }
+        })();
+    }, []);
+
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [16, 9],
             quality: 0.8,
@@ -94,9 +108,9 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
                     const file = new File([blob], filename, { type });
                     formData.append('image', file);
                 } else {
-                    // React Native FormData format
+                    const expoFile = new ExpoFile(uri);
                     formData.append('image', {
-                        uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
+                        bytes: () => expoFile.bytes(),
                         name: filename,
                         type,
                     } as any);
@@ -144,22 +158,41 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
 
     const handleUseCurrentLocation = async () => {
         try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                showToast('Location permission is required to use current location');
+            const permission = await Location.requestForegroundPermissionsAsync();
+            if (permission.status !== 'granted') {
+                if (permission.canAskAgain) {
+                    showToast('Location permission is required to use current location');
+                } else {
+                    Alert.alert(
+                        'Location Permission Needed',
+                        'Location access is turned off for Expo Go. Enable it in Settings, then tap Get Coordinates again.',
+                        [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                        ]
+                    );
+                }
                 return;
             }
 
-            const currentLocation = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-            });
+            let currentLocation: Location.LocationObject | null = null;
+            try {
+                currentLocation = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                    mayShowUserSettingsDialog: true,
+                });
+            } catch (positionError) {
+                currentLocation = await Location.getLastKnownPositionAsync();
+                if (!currentLocation) throw positionError;
+            }
 
             setLatitude(currentLocation.coords.latitude.toFixed(6));
             setLongitude(currentLocation.coords.longitude.toFixed(6));
             showToast('Current location captured', 'success');
         } catch (error) {
             console.error('Location error:', error);
-            showToast('Failed to get current location');
+            const message = error instanceof Error ? error.message : 'Failed to get current location';
+            showToast(message);
         }
     };
 
@@ -228,8 +261,8 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
                             <MaterialIcons name="my-location" size={18} color={COLORS.primary} />
                             <Text>Get Coordinates</Text>
                         </TouchableOpacity>
-                        {/* <View style={styles.row}>
-                            <View style={[styles.fieldGroup, { flex: 1 }]}>
+                        <View style={[styles.row, { marginTop: 12 }]}>
+                            <View style={{ flex: 1 }}>
                                 <TextInput
                                     style={styles.textInput}
                                     placeholder="Latitude"
@@ -239,7 +272,7 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
                                     keyboardType="numeric"
                                 />
                             </View>
-                            <View style={[styles.fieldGroup, { flex: 1, marginLeft: 16 }]}>
+                            <View style={{ flex: 1, marginLeft: 16 }}>
                                 <TextInput
                                     style={styles.textInput}
                                     placeholder="Longitude"
@@ -249,7 +282,7 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
                                     keyboardType="numeric"
                                 />
                             </View>
-                        </View> */}
+                        </View>
                     </View>
 
                     <View style={styles.fieldGroup}>

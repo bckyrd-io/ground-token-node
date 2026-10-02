@@ -1,4 +1,4 @@
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, StyleSheet, Text, View } from 'react-native';
@@ -125,10 +125,10 @@ export default function StaffScannerScreen() {
                     barcodeScannerSettings={{
                         barcodeTypes: ['qr'],
                     }}
-                    style={StyleSheet.absoluteFillObject}
+                    style={StyleSheet.absoluteFill}
                 />
             ) : (
-                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: COLORS.black }]} />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.black }]} />
             )}
 
             <View style={styles.overlay} />
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     overlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...(StyleSheet.absoluteFill as object),
     },
     scannerFrame: {
         width: 260,

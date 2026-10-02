@@ -26,6 +26,27 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 // SESSION_DURATION_MS: Time in milliseconds for play sessions
 const SESSION_DURATION_MS = 60 * 1000; // 1 minute for testing
 
+// HTTP_TIMEOUT_MS: Max time any outbound gateway request may take before we abort.
+// Without this a stalled PayChangu call leaves the client's request hanging forever,
+// which drains sockets and makes the server look dead.
+const HTTP_TIMEOUT_MS = 15_000;
+
+// fetchWithTimeout: fetch() with a hard deadline so no request can hang indefinitely
+async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+    try {
+        return await fetch(url, { ...init, signal: controller.signal });
+    } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error(`Request to ${url} timed out after ${HTTP_TIMEOUT_MS}ms`);
+        }
+        throw error;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 // PayChangu API helper function
 async function initiatePayChanguPayment(params: {
     amount: number;
@@ -54,7 +75,7 @@ async function initiatePayChanguPayment(params: {
 
     console.log(`[PayChangu] Using operator: ${operator.name} (${operator.ref_id})`);
 
-    const response = await fetch(`${PAYCHANGU_BASE_URL}/mobile-money/payments/initialize`, {
+    const response = await fetchWithTimeout(`${PAYCHANGU_BASE_URL}/mobile-money/payments/initialize`, {
         method: 'POST',
         headers: {
             'Accept': 'application/json',
@@ -79,7 +100,7 @@ async function initiatePayChanguPayment(params: {
 
 async function fetchMobileMoneyOperators(): Promise<Array<{ ref_id: string; name: string; country: string }>> {
     try {
-        const response = await fetch(`${PAYCHANGU_BASE_URL}/mobile-money`, {
+        const response = await fetchWithTimeout(`${PAYCHANGU_BASE_URL}/mobile-money`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -101,7 +122,7 @@ async function fetchMobileMoneyOperators(): Promise<Array<{ ref_id: string; name
 }
 
 async function verifyPayChanguPayment(chargeId: string) {
-    const response = await fetch(`${PAYCHANGU_BASE_URL}/mobile-money/payments/${chargeId}/verify`, {
+    const response = await fetchWithTimeout(`${PAYCHANGU_BASE_URL}/mobile-money/payments/${chargeId}/verify`, {
         method: 'GET',
         headers: {
             'Accept': 'application/json',
@@ -118,7 +139,16 @@ async function verifyPayChanguPayment(chargeId: string) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+// process.env values are always strings — parse and validate instead of passing
+// a raw string (or a bad value) into app.listen().
+const PORT = (() => {
+    const parsed = parseInt(process.env.PORT || '5000', 10);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65535) {
+        console.error(`Invalid PORT "${process.env.PORT}" — falling back to 5000`);
+        return 5000;
+    }
+    return parsed;
+})();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -155,22 +185,49 @@ const upload = multer({
 // ──────────────────────────────────────────────
 let pool: pg.Pool;
 
-async function initializeDatabase() {
-    try {
+async function initializeDatabase(attempt = 1, maxAttempts = 5): Promise<boolean> {
+    if (!pool) {
         pool = new Pool({
             host: process.env.DB_HOST || 'localhost',
             port: parseInt(process.env.DB_PORT || '5432'),
             user: process.env.DB_USER || 'postgres',
             password: process.env.DB_PASSWORD || 'postgres',
             database: process.env.DB_NAME || 'db_ground_token',
+            max: 10,
+            connectionTimeoutMillis: 5_000,
+            idleTimeoutMillis: 30_000,
+            allowExitOnIdle: false,
         });
-        // Test the connection
+
+        // CRITICAL: Pool is an EventEmitter. When an *idle* client hits a network
+        // error Postgres emits 'error'; with no listener Node throws an uncaught
+        // exception and the whole process dies with no useful log line.
+        pool.on('error', (err) => {
+            console.error('[DB] Idle client error (pool will recover):', err.message);
+        });
+    }
+
+    try {
         await pool.query('SELECT 1');
         console.log('✓ Database connected successfully');
         return true;
     } catch (error) {
-        console.error('✗ Database connection failed:', error);
-        return false;
+        const err = error as { message?: string; code?: string };
+        console.error(
+            `✗ Database connection failed (attempt ${attempt}/${maxAttempts}):`,
+            err.code || err.message
+        );
+
+        if (attempt >= maxAttempts) {
+            console.error('Giving up on database. Check DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME in backend/.env');
+            return false;
+        }
+
+        // Postgres often needs a few seconds longer than the app to come up.
+        // Retry with linear backoff instead of exiting on the first miss.
+        const delayMs = Math.min(1000 * attempt, 5000);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return initializeDatabase(attempt + 1, maxAttempts);
     }
 }
 
@@ -201,14 +258,66 @@ const parseCoordinate = (value: unknown, type: 'latitude' | 'longitude'): number
     return parsed;
 };
 
+app.disable('x-powered-by');
+app.set('trust proxy', true);
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Request logging — without this a hung request is invisible from the outside,
+// which is exactly why the server "looks dead".
+app.use((req, res, next) => {
+    const startedAt = process.hrtime.bigint();
+    res.on('finish', () => {
+        const ms = Number(process.hrtime.bigint() - startedAt) / 1e6;
+        const flag = res.statusCode >= 500 ? '[5xx]' : res.statusCode >= 400 ? '[4xx]' : '[ok]';
+        console.log(`${flag} ${res.statusCode} ${ms.toFixed(0)}ms ${req.method} ${req.originalUrl}`);
+    });
+    res.on('close', () => {
+        if (!res.writableEnded) {
+            console.log(`[abort] client disconnected before response: ${req.method} ${req.originalUrl}`);
+        }
+    });
+    next();
+});
+
 // ──────────────────────────────────────────────
 // Routes
 // ──────────────────────────────────────────────
+
+// Liveness: process is up and the event loop is turning. Never touches the DB.
+app.get('/ping', (_req, res) => {
+    res.json({ status: 'ok', uptime: Math.round(process.uptime()), timestamp: new Date().toISOString() });
+});
+
+// Readiness: process is up AND the database answers. Returns 503 when degraded so
+// a load balancer / uptime check can actually detect a half-dead server.
+app.get('/api/health', async (_req, res) => {
+    let dbOk = false;
+    let dbLatencyMs: number | null = null;
+
+    if (pool) {
+        const startedAt = process.hrtime.bigint();
+        try {
+            await pool.query('SELECT 1');
+            dbOk = true;
+            dbLatencyMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+        } catch (error) {
+            dbLatencyMs = null;
+            console.error('[Health] DB check failed:', (error as Error).message);
+        }
+    }
+
+    res.status(dbOk ? 200 : 503).json({
+        status: dbOk ? 'OK' : 'DEGRADED',
+        uptime: Math.round(process.uptime()),
+        timestamp: new Date().toISOString(),
+        database: { connected: dbOk, latencyMs: dbLatencyMs === null ? null : Math.round(dbLatencyMs) },
+        memory: { rssMb: Math.round(process.memoryUsage().rss / 1024 / 1024) },
+    });
+});
 
 app.get('/api/test-upload', (req, res) => {
     const uploadPath = path.join(__dirname, 'uploads');
@@ -803,7 +912,7 @@ app.post('/api/auth/login', async (req, res) => {
             SELECT u.*, s."staffId", s.status AS "staffStatus"
             FROM users u
             LEFT JOIN staff s ON u.id = s."userId"
-            WHERE u.username = $1 AND u."isActive" = true
+            WHERE (u.username = $1 OR u.email = $1) AND u."isActive" = true
         `, [username]);
 
         if (users.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
@@ -1068,8 +1177,14 @@ app.put('/api/users/:id', async (req, res) => {
         if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
 
         res.json({ message: 'User updated successfully', user: { id, username, email, phone } });
-    } catch (error) {
+    } catch (error: any) {
         console.error('[User] Update error:', error);
+        if (error?.code === '23505') {
+            return res.status(409).json({ error: 'That email address is already in use' });
+        }
+        if (error?.code === '22001') {
+            return res.status(400).json({ error: 'One of the fields exceeds the maximum allowed length' });
+        }
         res.status(500).json({ error: 'Failed to update user' });
     }
 });
@@ -1422,30 +1537,118 @@ app.get('/api/admin/export-report', async (_req, res) => {
 });
 
 // ──────────────────────────────────────────────
+// 404 + Central Error Handling
+// ──────────────────────────────────────────────
+
+app.use((req, res) => {
+    res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` });
+});
+
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error(`[Error] ${req.method} ${req.originalUrl}:`, err.stack || err.message);
+
+    if (res.headersSent) {
+        res.end();
+        return;
+    }
+
+    const status = (err as { status?: number; statusCode?: number }).status
+        || (err as { statusCode?: number }).statusCode
+        || 500;
+
+    res.status(status >= 400 && status < 600 ? status : 500).json({
+        error: status === 500 ? 'Internal Server Error' : err.message,
+    });
+});
+
+// ──────────────────────────────────────────────
 // Server Startup
 // ──────────────────────────────────────────────
 
-async function startServer() {
-    const dbConnected = await initializeDatabase();
+const HOST = process.env.HOST || '0.0.0.0';
+let httpServer: import('http').Server | null = null;
+let shuttingDown = false;
 
+async function startServer(): Promise<void> {
+    const dbConnected = await initializeDatabase();
     if (!dbConnected) {
         console.error('Could not start server: database connection failed');
         process.exit(1);
     }
 
-    app.get('/ping', (_req, res) => {
-        console.log('✨ Handshake received from a mobile device!');
-        res.send(' Server is Alive!');
+    // Route is now registered at module level, not inside this function.
+    httpServer = app.listen(PORT, HOST);
+
+    // CRITICAL: 'error' on a net.Server is an EventEmitter error. Without a
+    // listener Node treats it as an uncaught exception and the process dies —
+    // this is what EADDRINUSE looks like from the outside ("server just died").
+    httpServer.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`✗ Port ${PORT} is already in use. Another copy of the server (or a zombie process) is holding it.`);
+            console.error(`  Find it:  netstat -ano | findstr :${PORT}`);
+            console.error(`  Kill it:  taskkill /PID <pid> /F`);
+        } else if (err.code === 'EACCES') {
+            console.error(`✗ Permission denied binding port ${PORT}. Try a port above 1024 or run as an elevated shell.`);
+        } else if (err.code === 'EADDRNOTAVAIL') {
+            console.error(`✗ Host ${HOST} is not available on this machine.`);
+        } else {
+            console.error('✗ HTTP server error:', err);
+        }
+        process.exit(1);
     });
 
-    const SERVER_PORT = 5000;
-    app.listen(SERVER_PORT, '0.0.0.0', () => {
-        console.log(`✓ Server running on ${SERVER_PORT}`);
-        console.log(`✓ Test this in your phone browser: ${SERVER_PORT}/ping`);
+    httpServer.on('listening', () => {
+        console.log(`✓ Server running on http://${HOST}:${PORT}  (pid ${process.pid})`);
+        console.log(`  Liveness : http://localhost:${PORT}/ping`);
+        console.log(`  Readiness: http://localhost:${PORT}/api/health`);
     });
+
+    // A hung request must not hold a socket forever.
+    httpServer.requestTimeout = 30_000;
+    httpServer.headersTimeout = 20_000;
+    httpServer.keepAliveTimeout = 10_000;
+    httpServer.maxRequestsPerSocket = 1000;
 }
 
-startServer().catch(error => {
-    console.error('Fatal error:', error);
+// Graceful shutdown: stop accepting, drain, close the pool, then exit.
+function shutdown(signal: string): void {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`\n${signal} received — shutting down gracefully…`);
+
+    const forceExit = setTimeout(() => {
+        console.error('Shutdown timed out after 10s — forcing exit.');
+        process.exit(1);
+    }, 10_000);
+    forceExit.unref();
+
+    const done = () => {
+        clearTimeout(forceExit);
+        process.exit(0);
+    };
+
+    if (httpServer) httpServer.close(done);
+    else done();
+
+    // Always drain the pool so Postgres doesn't keep the process alive.
+    Promise.resolve(pool?.end()).catch(() => undefined).finally(done);
+}
+
+// Never let a stray rejection or throw take the whole process down silently.
+process.on('unhandledRejection', (reason) => {
+    console.error('[FATAL] Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Uncaught exception:', err);
+    // The process is in an undefined state; drain and restart cleanly.
+    shutdown('uncaughtException');
+});
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+startServer().catch((error) => {
+    console.error('Fatal startup error:', error);
     process.exit(1);
 });
