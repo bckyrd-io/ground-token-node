@@ -1,4 +1,5 @@
 import { COLORS } from '@/constants/theme';
+import { API_URL } from '@/constants/config';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import React, { useEffect, useState } from 'react';
@@ -34,7 +35,7 @@ export default function AdminDashboardScreen() {
 
     const fetchDashboardData = async () => {
         try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const serverIp = API_URL;
             const response = await fetch(`${serverIp}/api/admin/dashboard`);
             
             if (response.ok) {
@@ -68,7 +69,7 @@ export default function AdminDashboardScreen() {
         try {
             showToast('Generating report...', 'success');
             
-            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const serverIp = API_URL;
             const response = await fetch(`${serverIp}/api/admin/export-report`);
             
             if (!response.ok) {

@@ -1,4 +1,5 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { API_URL } from '@/constants/config';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -77,7 +78,7 @@ export const AddActivitySheet = forwardRef<any, any>((props, ref) => {
         setIsLoading(true);
 
         try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+            const serverIp = API_URL;
 
             // Create FormData for file upload
             const formData = new FormData();

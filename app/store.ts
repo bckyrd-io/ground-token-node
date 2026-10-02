@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { API_URL } from '@/constants/config';
 
 // Define types
 export type Profile = {
@@ -138,7 +139,7 @@ export const useStore = create<StoreState>((set, get) => ({
         role: 'visitor',
         createdAt: new Date().toISOString()
     },
-    serverIp: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.43.2:5000',
+    serverIp: API_URL,
     activities: [],
     adminActivities: [],
     activityDetails: {},

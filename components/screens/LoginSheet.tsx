@@ -3,6 +3,7 @@ import { showToast } from '@/app/toast';
 // eslint-disable-next-line import/no-named-as-default
 import ScreenBottomSheet from '@/components/ScreenBottomSheet';
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { API_URL } from '@/constants/config';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { forwardRef, useRef, useState } from 'react';
@@ -68,7 +69,7 @@ export const LoginSheet = forwardRef<any, LoginSheetProps>((props, ref) => {
         setIsLoading(true);
 
         try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL;
+            const serverIp = API_URL;
             const response = await fetch(`${serverIp}/api/auth/login`, {
                 method: 'POST',
                 headers: {

@@ -1,6 +1,7 @@
 import { showToast } from '@/app/toast';
 import { ScreenBottomSheet } from '@/components/ScreenBottomSheet';
 import { COLORS } from '@/constants/theme';
+import { API_URL } from '@/constants/config';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -44,7 +45,7 @@ type ActivityCapacitySheetProps = {
 
 export const ActivityCapacitySheet = forwardRef<any, ActivityCapacitySheetProps>(({ selectedActivity, onUpdated }, ref) => {
     const serverIp = useMemo(
-        () => process.env.EXPO_PUBLIC_API_URL || 'http://192.168.43.2:5000',
+        () => API_URL,
         []
     );
     const [activityDetail, setActivityDetail] = useState<ActivityDetail | null>(null);

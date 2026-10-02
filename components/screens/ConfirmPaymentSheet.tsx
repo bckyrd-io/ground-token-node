@@ -1,4 +1,5 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { API_URL } from '@/constants/config';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -54,7 +55,7 @@ export const ConfirmPaymentSheet = forwardRef<any, { activityId?: string }>((pro
 
     // Poll for payment status
     const pollPaymentStatus = (chargeId: string, guestUser: any) => {
-        const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.175:5000';
+        const serverIp = API_URL;
         let attempts = 0;
         const maxAttempts = 60; // Poll for up to 5 minutes (60 * 5 seconds)
 
@@ -136,7 +137,7 @@ export const ConfirmPaymentSheet = forwardRef<any, { activityId?: string }>((pro
         setIsLoading(true);
 
         try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL;
+            const serverIp = API_URL;
             const response = await fetch(`${serverIp}/api/payment/process`, {
                 method: 'POST',
                 headers: {

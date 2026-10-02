@@ -1,4 +1,5 @@
 import { COLORS } from '@/constants/theme';
+import { API_URL } from '@/constants/config';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
@@ -49,7 +50,7 @@ export default function StaffManagementScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.43.2:5000';
+                            const serverIp = API_URL;
                             const response = await fetch(`${serverIp}/api/staff/${staffId}`, {
                                 method: 'DELETE',
                             });

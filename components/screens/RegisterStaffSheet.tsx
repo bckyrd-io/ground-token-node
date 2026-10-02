@@ -1,4 +1,5 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { API_URL } from '@/constants/config';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState, forwardRef } from 'react';
@@ -34,7 +35,7 @@ export const RegisterStaffSheet = forwardRef<any, RegisterStaffSheetProps>((prop
         setIsLoading(true);
 
         try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.43.2:5000';
+            const serverIp = API_URL;
             const response = await fetch(`${serverIp}/api/auth/register-staff`, {
                 method: 'POST',
                 headers: {

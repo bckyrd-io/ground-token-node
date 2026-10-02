@@ -1,4 +1,5 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { API_URL } from '@/constants/config';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useState, forwardRef, useRef } from 'react';
@@ -120,7 +121,7 @@ export const AccountSheet = forwardRef<any, any>((props, ref) => {
         setIsLoading(true);
 
         try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL;
+            const serverIp = API_URL;
 
             // Build update object - only include password if it's provided
             const updateData: any = {

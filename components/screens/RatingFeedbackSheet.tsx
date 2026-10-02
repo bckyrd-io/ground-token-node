@@ -1,4 +1,5 @@
 import { COLORS, FORM_INPUT_TOKENS } from '@/constants/theme';
+import { API_URL } from '@/constants/config';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useState, forwardRef } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -32,7 +33,7 @@ export const RatingFeedbackSheet = forwardRef<any, { activityId?: string }>((pro
         setIsLoading(true);
 
         try {
-            const serverIp = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.43.2:5000';
+            const serverIp = API_URL;
 
             // Mock user and activity IDs - in production, get from auth/params
             const userId = profile?.id;
