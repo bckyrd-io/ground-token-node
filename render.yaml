@@ -28,7 +28,12 @@ services:
     # the compiled output rather than server.ts. Node's native TypeScript
     # type-stripping is only on by default from 23.6+, and Render's default
     # runtime is older than that.
-    buildCommand: npm install && npm run build
+    #
+    # --include=dev is required, not decorative. NODE_ENV=production is set
+    # below, and npm honours that at install time by omitting devDependencies -
+    # which is where typescript and the @types packages live. Without this flag
+    # `tsc` is absent and the build fails with "tsc: not found".
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
 
     # Deliberately /ping and not /: it answers without touching Postgres, so a
