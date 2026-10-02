@@ -176,19 +176,43 @@ persist, move the service off the free plan, attach a disk, and point
 
 ## Building the app
 
+The backend is already deployed at **https://ground-token-node.onrender.com**.
+The Android app is built in EAS cloud, which is what `EXPO_PUBLIC_API_URL` in
+`eas.json` points at:
+
 ```bash
-npm install
-npx eas-cli login
-eas build --profile preview --platform android     # APK, internal testing
-eas build --profile production --platform android  # APK, auto-incremented
+npm install -g eas-cli     # or: npx eas-cli@latest ...
+eas login
+eas whoami                 # expect bckyrd
+eas build --profile preview  --platform android --non-interactive
+eas build --profile production --platform android --non-interactive
 ```
 
-`preview` and `production` already set `EXPO_PUBLIC_API_URL` in `eas.json`, so
-a cloud build does not depend on any local file. The `development` profile
-intentionally does not — it stays pointed at your LAN address.
+`preview` and `production` both set `EXPO_PUBLIC_API_URL` in `eas.json`, so a
+cloud build needs no local file. The `development` profile intentionally does
+not set it, so it stays empty and `constants/config.ts` prints a warning instead
+of silently calling your LAN address.
+
+Watch a queued build without blocking on it:
+
+```bash
+eas build:view <build-id> --json      # .status, .artifacts.buildUrl
+eas build:list
+```
+
+Verified locally before the first cloud build
+(`npx expo export --platform android`): the bundle contains
+`ground-token-node.onrender.com`, no stale `ground-token-api` reference, no LAN
+IP literals, and no PayChangu secret or webhook secret. Worth re-checking after
+any config change — the bundle is what ships:
+
+```bash
+grep -o 'ground-token[a-z-]*\.onrender\.com' dist/_expo/static/js/android/*.hbc | sort -u
+```
 
 Free EAS accounts get 15 Android and 15 iOS builds a month on a low-priority
-queue, with a 45-minute timeout. Expect a 15–30 minute wait.
+queue. Expect a long `IN_QUEUE` wait — the first build here sat queued for over
+18 minutes, which is normal, not a failure. Builds time out after 45 minutes.
 
 Notes:
 
@@ -196,8 +220,12 @@ Notes:
   is not installed, so that profile will fail. Ignore it or add the dependency.
 - iOS has no `bundleIdentifier` in `app.json` yet; the first iOS build prompts
   for one.
-- `patches/expo-notifications+57.0.21.patch` is required for the app to boot
-  outside a dev client. Do not add an `.easignore` that excludes `patches/`.
+- `android.package` is `com.anonymous.token`. Fine for internal APKs, but change
+  it before any Play Store submission — the package name cannot be changed after
+  a listing exists.
+- `patches/expo-notifications+57.0.21.patch` is applied by `postinstall`
+  (`patch-package`) and is required for the app to boot outside a dev client. Do
+  not add an `.easignore` that excludes `patches/`.
 
 ---
 
