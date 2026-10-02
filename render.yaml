@@ -52,22 +52,29 @@ services:
 
     envVars:
       # -- database, injected from the Postgres above --
-      - key: DB_HOST
+      #
+      # `connectionString` is the INTERNAL url: it only resolves on Render's
+      # private network, which is exactly what a service in the same workspace
+      # needs. (There is no external/internal choice to make here - the
+      # external url lives in the dashboard for your own machine.)
+      #
+      # server.ts prefers DATABASE_URL when it is set, so this is all the
+      # service actually needs. DB_USER/DB_NAME are kept as well because they
+      # are convenient in the Shell tab.
+      #
+      # Note: Render's prose docs list `host`/`port` as web/private-service
+      # properties only, but their published JSON schema does accept them for
+      # Postgres, so either form syncs. `connectionString` is used here because
+      # it is one authoritative value instead of five that have to agree, and
+      # server.ts prefers DATABASE_URL when it is set.
+      - key: DATABASE_URL
         fromDatabase:
           name: ground-token-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: ground-token-db
-          property: port
+          property: connectionString
       - key: DB_USER
         fromDatabase:
           name: ground-token-db
           property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: ground-token-db
-          property: password
       - key: DB_NAME
         fromDatabase:
           name: ground-token-db

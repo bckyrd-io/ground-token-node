@@ -148,6 +148,12 @@ Run it on your machine to get a correct reference copy of
 `backend/.env.production` (git-ignored). It cannot make `npm run dev:online`
 reach the Render database: the internal host only resolves inside Render.
 
+Both `server.ts` and the migration script read `DATABASE_URL` first and fall
+back to the individual `DB_*` variables, so a platform that hands you one
+connection string — Render, Heroku, Railway — works without editing anything.
+They deliberately agree, because if the app and the migration script resolved
+different hosts you would get a live service attached to an empty database.
+
 ### Two things about the free plan
 
 - **The database expires 30 days after creation**, then deletes its data after a

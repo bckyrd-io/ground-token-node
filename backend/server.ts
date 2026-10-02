@@ -250,12 +250,24 @@ const DB_CONNECT_MAX_ATTEMPTS = (() => {
 
 async function initializeDatabase(attempt = 1, maxAttempts = DB_CONNECT_MAX_ATTEMPTS): Promise<boolean> {
     if (!pool) {
+        // DATABASE_URL wins when present, because that is what Render injects
+        // from the Blueprint and what managed platforms hand you in the
+        // dashboard. The individual DB_* variables stay supported for local
+        // work. Both paths must agree, or the app connects somewhere different
+        // from the migration script and you get a mysteriously empty database.
+        const connectionString = process.env.DATABASE_URL;
+        const connection = connectionString
+            ? { connectionString }
+            : {
+                  host: process.env.DB_HOST || 'localhost',
+                  port: parseInt(process.env.DB_PORT || '5432'),
+                  user: process.env.DB_USER || 'postgres',
+                  password: process.env.DB_PASSWORD || 'postgres',
+                  database: process.env.DB_NAME || 'db_ground_token',
+              };
+
         pool = new Pool({
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT || '5432'),
-            user: process.env.DB_USER || 'postgres',
-            password: process.env.DB_PASSWORD || 'postgres',
-            database: process.env.DB_NAME || 'db_ground_token',
+            ...connection,
             ssl: DB_SSL,
             max: 10,
             connectionTimeoutMillis: 5_000,
@@ -284,7 +296,11 @@ async function initializeDatabase(attempt = 1, maxAttempts = DB_CONNECT_MAX_ATTE
 
         if (attempt >= maxAttempts) {
             console.error(`Giving up on database after ${maxAttempts} attempts.`);
-            console.error(`Check DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME in backend/.env${SERVER_MODE === 'online' ? '.production' : ''}`);
+            console.error(
+                process.env.DATABASE_URL
+                    ? 'Check DATABASE_URL on the service (Render -> your service -> Environment).'
+                    : `Check DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME in backend/.env${SERVER_MODE === 'online' ? '.production' : ''}`
+            );
             return false;
         }
 
@@ -1665,7 +1681,7 @@ async function startServer(): Promise<void> {
     httpServer.on('listening', () => {
         console.log(`✓ Server running on http://${HOST}:${PORT}  (pid ${process.pid})`);
         console.log(`  Mode     : ${SERVER_MODE}${SERVER_MODE === 'online' ? ' (backend/.env.production)' : ' (backend/.env)'}`);
-        console.log(`  Database : ${process.env.DB_HOST}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME}  ssl=${DB_SSL ? 'on' : 'off'}`);
+        console.log(`  Database : ${process.env.DATABASE_URL ? 'DATABASE_URL (host redacted)' : `${process.env.DB_HOST}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME}`}  ssl=${DB_SSL ? 'on' : 'off'}`);
         console.log(`  Uploads  : ${UPLOAD_DIR}`);
         console.log(`  Liveness : http://localhost:${PORT}/ping`);
         console.log(`  Readiness: http://localhost:${PORT}/api/health`);
