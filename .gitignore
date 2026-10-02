@@ -36,8 +36,33 @@ yarn-error.*
 # local env files
 .env*.local
 
+# env files that carry real credentials — never commit these.
+# Only the *.example / *.template variants are tracked.
+.env.production
+.env.*.production
+
+# web export (dist/ is already ignored above)
+dist-web/
+
+# logs
+*.log
+
 # typescript
 *.tsbuildinfo
+
+# backend build output (compiled from backend/server.ts by `npm run build`)
+backend/server.js
+backend/server.js.map
+backend/server.d.ts
+backend/server.d.ts.map
+
+# backend dev scratch / diagnostic scripts (_dbcheck.mjs, _rendercheck.mjs, ...)
+backend/_*.mjs
+
+# uploaded activity images — runtime data, not source.
+# ground1-4.jpg are seed fixtures referenced by the seed data, so they stay tracked.
+backend/uploads/image-*
+!backend/uploads/.gitkeep
 
 app-example
 

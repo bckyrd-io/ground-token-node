@@ -1,7 +1,0 @@
-env: load .env
-env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_ENV PAYCHANGU_BASE_URL PAYCHANGU_PUBLIC_KEY PAYCHANGU_SECRET_KEY WEBHOOK_SECRET
-Starting project at C:\Users\Administrator\Documents\Github\ground-token-node
-React Compiler enabled
-Starting Metro Bundler
-
-warning: Bundler cache is empty, rebuilding (this may take a minute)
