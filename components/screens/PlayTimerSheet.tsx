@@ -32,9 +32,12 @@ export const PlayTimerSheet = forwardRef<any, { tokenId?: string, onFinish?: (ac
     // - 15 * 60 * 1000 = 15 minutes (extended)
 
     /*
-     * Timer uses actual session duration from backend (expiresAt)
-     * Session duration is 1 minute from when token becomes 'in_use' (session started)
-     * Refetch token data on mount to ensure we have the latest expiresAt
+     * Timer uses actual session duration from backend (expiresAt).
+     * The duration is the server's SESSION_DURATION_MS (5 minutes by default,
+     * overridable via the SESSION_DURATION_MS env var), counted from the moment
+     * the token becomes 'in_use'. There is deliberately no copy of that number
+     * here -- refetch token data on mount so the displayed timer always matches
+     * what the server will actually enforce.
      */
     useEffect(() => {
         if (profile?.id) {

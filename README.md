@@ -220,9 +220,10 @@ Notes:
   is not installed, so that profile will fail. Ignore it or add the dependency.
 - iOS has no `bundleIdentifier` in `app.json` yet; the first iOS build prompts
   for one.
-- `android.package` is `com.anonymous.token`. Fine for internal APKs, but change
-  it before any Play Store submission — the package name cannot be changed after
-  a listing exists.
+- `android.package` is `io.bckyrd.groundtoken`. This is permanent once a Play
+  Store listing exists, so confirm it before submitting anything. It is baked
+  into the native build — changing it requires a new EAS build, and an APK with
+  a different package will not upgrade-install over an older one.
 - `patches/expo-notifications+57.0.21.patch` is applied by `postinstall`
   (`patch-package`) and is required for the app to boot outside a dev client. Do
   not add an `.easignore` that excludes `patches/`.
@@ -249,20 +250,27 @@ preserved on the `archive-main` branch.
 
 ## Known gaps
 
-Left deliberately out of this deployment pass, for a later pass:
+Left deliberately out of this pass. The first one is the one that matters:
 
 - **No authentication on any route.** No JWT, no middleware; passwords are
   stored and compared in plaintext (`backend/server.ts`), and identity is a
-  client-supplied `userId`. Once the Render URL is public, anyone can call the
-  admin and delete routes.
+  client-supplied `userId`. The API is now publicly reachable, so **anyone can
+  call the admin and delete routes**, and can read every user's phone number out
+  of the database. Fine for a private test build with scrubbed data — not fine
+  for real users or real payment records.
 - **The payment webhook is not signature-verified.** `WEBHOOK_SECRET` is read
   but unused.
 - **CORS is fully open.**
 - **No offline support.** There is no local persistence — no SQLite, no
   AsyncStorage. All state lives in an in-memory Zustand store and is lost on
   restart; the nine store actions swallow errors to `console.error`.
-- **`SESSION_DURATION_MS` is 60 seconds** (`backend/server.ts`), hardcoded for
-  testing.
+- **Uploaded images are ephemeral** on the free plan; see above.
+- **Play sessions last 5 minutes** (`SESSION_DURATION_MS`, overridable by env
+  var). It was hardcoded to 60s, which kicked children off a session mid-play.
+  Set `SESSION_DURATION_MS=60000` for a fast demo.
+- **The Render database expires 2026-11-01**, after which there is a 14-day
+  grace period and then the data is deleted. `npm run db:reset` restores the
+  scrubbed schema, but uploaded images are gone for good.
 
 ## About the seed data
 

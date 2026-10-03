@@ -31,7 +31,7 @@
       ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.token"
+      "package": "io.bckyrd.groundtoken"
     },
     "web": {
       "output": "static",

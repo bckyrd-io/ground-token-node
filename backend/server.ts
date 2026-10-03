@@ -60,8 +60,20 @@ const PAYCHANGU_SECRET_KEY = process.env.PAYCHANGU_SECRET_KEY || '';
 const PAYCHANGU_BASE_URL = process.env.PAYCHANGU_BASE_URL || 'https://api.paychangu.com';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 
-// SESSION_DURATION_MS: Time in milliseconds for play sessions
-const SESSION_DURATION_MS = 60 * 1000; // 1 minute for testing
+// SESSION_DURATION_MS: how long a play session lasts, from the moment a token is
+// scanned. 5 minutes is a realistic slot for a kids' playground.
+//
+// Was hardcoded to 60s "for testing", which is fine on a laptop and useless in
+// the field: a child gets kicked off a session mid-play, and it makes the whole
+// app look broken. Overridable per environment so a demo can still use 60s
+// without editing and rebuilding code.
+const SESSION_DURATION_MS = (() => {
+    const parsed = parseInt(process.env.SESSION_DURATION_MS || '', 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+        return 5 * 60 * 1000;
+    }
+    return parsed;
+})();
 
 // HTTP_TIMEOUT_MS: Max time any outbound gateway request may take before we abort.
 // Without this a stalled PayChangu call leaves the client's request hanging forever,
